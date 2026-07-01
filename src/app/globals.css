@@ -2,26 +2,100 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
+@layer base {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    /* Neutral steel base */
+    --background: 210 20% 98%;
+    --foreground: 215 25% 15%;
+    --card: 0 0% 100%;
+    --card-foreground: 215 25% 15%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 25% 15%;
+    /* Welding-spark amber accent */
+    --primary: 24 94% 50%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 215 16% 92%;
+    --secondary-foreground: 215 25% 20%;
+    --muted: 215 16% 94%;
+    --muted-foreground: 215 12% 45%;
+    --accent: 24 94% 50%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 215 16% 88%;
+    --input: 215 16% 86%;
+    --ring: 24 94% 50%;
+    --radius: 0.6rem;
   }
-}
 
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  .dark {
+    --background: 220 26% 9%;
+    --foreground: 210 20% 92%;
+    --card: 220 24% 12%;
+    --card-foreground: 210 20% 92%;
+    --popover: 220 24% 12%;
+    --popover-foreground: 210 20% 92%;
+    --primary: 24 94% 53%;
+    --primary-foreground: 220 26% 9%;
+    --secondary: 217 19% 20%;
+    --secondary-foreground: 210 20% 92%;
+    --muted: 217 19% 18%;
+    --muted-foreground: 215 14% 62%;
+    --accent: 24 94% 53%;
+    --accent-foreground: 220 26% 9%;
+    --destructive: 0 63% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 217 19% 22%;
+    --input: 217 19% 24%;
+    --ring: 24 94% 53%;
+  }
+
+  * {
+    border-color: hsl(var(--border));
+  }
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    -webkit-font-smoothing: antialiased;
+  }
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+  /* thin scrollbars for the dense line-item table */
+  .scrollbar-thin::-webkit-scrollbar {
+    height: 8px;
+    width: 8px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 9999px;
+  }
+}
+
+/* ===================================================================
+   PRINT / PDF — single A4 page, WYSIWYG with the on-screen preview.
+   The .doc-page element is the printable canvas. Everything outside
+   .print-root is hidden when printing.
+   =================================================================== */
+@media print {
+  @page {
+    size: A4;
+    margin: 0;
+  }
+  html,
+  body {
+    background: #fff !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .doc-page {
+    box-shadow: none !important;
+    margin: 0 !important;
   }
 }

@@ -1,36 +1,132 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Steelman Billing
 
-## Getting Started
+Invoice & Quotation platform for **Steelman Fabrication & Aluminium Windows Works** (Indore, MP).
 
-First, run the development server:
+Staff create GST-ready Invoices and Quotations from category-aware dropdowns, totals auto-calculate (Indian ₹ formatting + amount-in-words), and each document exports as a **pixel-clean single-page A4 PDF** that matches the on-screen preview exactly.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Tech stack
+
+- **Next.js 14** (App Router, TypeScript) + **Tailwind CSS**
+- **Supabase** — Postgres, Auth, Row Level Security
+- **Puppeteer** (headless Chromium) for server-side HTML→PDF, plus browser `Print`
+- **Zod / react-hook-form** patterns, **Recharts** dashboard, **@dnd-kit** row reordering
+- **sonner** toasts (undo-on-delete, autosave indicator)
+
+## Architecture overview
+
+```
+src/
+  app/
+    login/                 # branded sign-in (Supabase email/password)
+    (app)/                 # authenticated shell (nav, theme, command palette)
+      dashboard/           # KPIs + revenue chart (Fab vs Aluminium) + widgets
+      documents/           # list + filters + convert-to-invoice
+      documents/new/       # the document editor (server loads catalog + profile)
+    print/                 # standalone A4 canvas consumed by Puppeteer / browser
+    api/pdf/               # POST -> single-page A4 PDF (renders /print)
+  components/
+    document/              # DocumentPreview (A4 template + shrink-to-fit),
+                           # PreviewPane, LineItemsTable, DocumentEditor
+    dashboard/ documents/ ui/ ...
+  lib/
+    format.ts              # Indian ₹ grouping + Lakh/Crore amount-in-words
+    calc.ts                # authoritative totals math (mirrors DB trigger)
+    fit-to-page.ts         # density step-down for one-page fit
+    catalog.ts types.ts    # seed catalog + domain types
+    supabase/              # browser / server / middleware clients
+supabase/migrations/       # schema + RLS + seed (see below)
+scripts/seed-admin.mjs     # provisions the first admin account
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+**Business-critical guarantees**
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- **Totals math** lives in `src/lib/calc.ts` (client, for live UX) and is mirrored
+  by a Postgres trigger (`recalc_document_totals`) so stored totals are never
+  trusted from the client. Currency + words are centralised in `src/lib/format.ts`.
+- **Single-page PDF**: the `.doc-page` is a fixed A4 canvas (210×297mm, `@page` margin 0).
+  Header + footer are fixed; the line-items area flex-grows and the footer is anchored
+  to the bottom. `DocumentPreview` measures content and steps a density scale down
+  (100% → … → ~8pt min) until it fits, then flags `data-ready="1"`. The same React
+  component powers the preview **and** the PDF, so downloads are WYSIWYG.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Setup
 
-## Learn More
+1. **Install**
 
-To learn more about Next.js, take a look at the following resources:
+   ```bash
+   npm install
+   ```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+2. **Create a Supabase project**, then copy env:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+   ```bash
+   cp .env.example .env.local
+   ```
 
-## Deploy on Vercel
+   Fill in `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and
+   `SUPABASE_SERVICE_ROLE_KEY` (from Supabase → Project Settings → API).
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+3. **Run migrations** (schema + RLS + seed). Either paste the files in the SQL
+   editor in order, or use the Supabase CLI:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+   ```bash
+   supabase db push        # applies supabase/migrations/*.sql
+   ```
+
+   - `0001_init.sql` — tables, enums, `next_doc_number` RPC, totals triggers, RLS
+   - `0002_seed_catalog.sql` — Fabrication + Aluminium description lists
+
+4. **Provision the first admin** (no public sign-up):
+
+   ```bash
+   npm run seed:admin      # uses SEED_ADMIN_* from .env.local
+   ```
+
+5. **Run**
+
+   ```bash
+   npm run dev             # http://localhost:3000
+   ```
+
+## PDF rendering
+
+- **Local / any Node host**: uses the Chromium bundled with `puppeteer` — works out of the box.
+- **Vercel / serverless**: Chromium isn't bundled. Install the serverless pair and
+  flip the flag:
+
+  ```bash
+  npm install @sparticuz/chromium puppeteer-core
+  # .env: PDF_USE_SERVERLESS_CHROMIUM=1
+  ```
+
+  `src/app/api/pdf/route.ts` already branches on that flag. Also set
+  `NEXT_PUBLIC_APP_URL` to the deployed origin so the engine can load `/print`.
+
+The in-app **Print** button opens `/print` and triggers the browser dialog
+(Save as PDF) — a zero-dependency fallback that is byte-for-byte the same layout.
+
+## Roles & access
+
+- **Admin** — full access: all documents, reports, manage item descriptions/users.
+- **Staff** — create/view/edit their own documents, read-only reports.
+- RLS enforces ownership (`created_by = auth.uid()`) with an `is_admin()` override.
+  Unauthenticated requests are redirected to `/login` by middleware.
+
+## Formatting
+
+All currency uses Indian grouping (`₹1,20,000.00`) and amount-in-words uses the
+Indian system (`Rupees One Lakh Twenty Thousand Only`), consistently across the
+UI and the PDF.
+
+## Notes / next steps
+
+Implemented end-to-end: auth, RLS schema + seed, atomic numbering, the full
+document editor (type/category toggles, category-aware dropdowns with free-text
+"Other", drag reorder, duplicate, undo-delete, autosave, GST slabs, live totals),
+the single-page A4 PDF pipeline, documents list with convert-to-invoice, and the
+analytics dashboard.
+
+Natural extensions not yet wired: an admin settings screen to edit
+`item_descriptions`/users from the UI, per-document edit/reopen route, payment
+entry UI (the `payments` table + reports already exist), and CSV/Excel export of
+report data.
