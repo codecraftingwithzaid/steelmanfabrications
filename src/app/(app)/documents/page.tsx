@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { FilePlus2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { buttonVariants } from "@/components/ui/button";
+import { SpinnerLink } from "@/components/ui/spinner-link";
 import { DocumentsTable } from "@/components/documents/documents-table";
 import type { DocumentRecord } from "@/lib/types";
 
@@ -29,9 +29,9 @@ export default async function DocumentsPage() {
             All invoices and quotations you can access.
           </p>
         </div>
-        <Link href="/documents/new" className={buttonVariants({ size: "sm" })}>
+        <SpinnerLink href="/documents/new" className={buttonVariants({ size: "sm" })}>
           <FilePlus2 className="size-4" /> New Document
-        </Link>
+        </SpinnerLink>
       </div>
       <DocumentsTable rows={rows} />
     </div>

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import {
   AlertTriangle,
   CircleDollarSign,
@@ -10,6 +9,7 @@ import { createClient } from "@/lib/supabase/server";
 import { formatINR } from "@/lib/format";
 import { Badge, Card } from "@/components/ui/misc";
 import { buttonVariants } from "@/components/ui/button";
+import { SpinnerLink } from "@/components/ui/spinner-link";
 import { RevenueChart } from "@/components/dashboard/revenue-chart";
 import type { CategorySlug } from "@/lib/catalog";
 
@@ -122,9 +122,9 @@ export default async function DashboardPage() {
             Revenue overview and recent activity.
           </p>
         </div>
-        <Link href="/documents/new" className={buttonVariants({ size: "sm" })}>
+        <SpinnerLink href="/documents/new" className={buttonVariants({ size: "sm" })}>
           New Document
-        </Link>
+        </SpinnerLink>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

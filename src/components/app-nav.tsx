@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import {
   FilePlus2,
   LayoutDashboard,
   FileText,
   LogOut,
   Command,
+  Loader2,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
@@ -33,6 +34,8 @@ export function AppNav({
   const pathname = usePathname();
   const router = useRouter();
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [pending, startTransition] = useTransition();
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -45,6 +48,17 @@ export function AppNav({
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  // Clear the per-link spinner once the navigation settles.
+  useEffect(() => {
+    if (!pending) setPendingHref(null);
+  }, [pending]);
+
+  function navigate(href: string) {
+    if (href === pathname) return;
+    setPendingHref(href);
+    startTransition(() => router.push(href));
+  }
+
   async function signOut() {
     await createClient().auth.signOut();
     router.replace("/login");
@@ -53,6 +67,13 @@ export function AppNav({
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur">
+      {/* top navigation progress bar */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-0.5 overflow-hidden">
+        {pending && (
+          <div className="h-full w-1/3 animate-[nav-progress_1s_ease-in-out_infinite] bg-primary" />
+        )}
+      </div>
+
       <div className="mx-auto flex h-14 w-full max-w-7xl items-center gap-2 px-4 md:px-8">
         <Link href="/dashboard" className="flex items-center gap-2 font-bold">
           <span className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-sm font-black text-primary-foreground">
@@ -66,11 +87,17 @@ export function AppNav({
             const active =
               pathname === l.href ||
               (l.href !== "/dashboard" && pathname.startsWith(l.href));
+            const isPending = pending && pendingHref === l.href;
             const Icon = l.icon;
             return (
               <Link
                 key={l.href}
                 href={l.href}
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate(l.href);
+                }}
+                aria-busy={isPending}
                 className={cn(
                   "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
                   active
@@ -78,7 +105,11 @@ export function AppNav({
                     : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
                 )}
               >
-                <Icon className="size-4" />
+                {isPending ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Icon className="size-4" />
+                )}
                 <span className="hidden md:inline">{l.label}</span>
               </Link>
             );
@@ -106,7 +137,11 @@ export function AppNav({
           </Button>
         </div>
       </div>
-      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
+      <CommandPalette
+        open={paletteOpen}
+        onOpenChange={setPaletteOpen}
+        onNavigate={navigate}
+      />
     </header>
   );
 }

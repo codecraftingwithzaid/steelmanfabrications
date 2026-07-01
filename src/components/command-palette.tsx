@@ -14,12 +14,16 @@ interface Action {
 export function CommandPalette({
   open,
   onOpenChange,
+  onNavigate,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
+  onNavigate?: (href: string) => void;
 }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
+
+  const go = (href: string) => (onNavigate ? onNavigate(href) : router.push(href));
 
   const actions: Action[] = useMemo(
     () => [
@@ -27,28 +31,29 @@ export function CommandPalette({
         label: "New Invoice",
         hint: "Create",
         icon: FilePlus2,
-        run: () => router.push("/documents/new?type=invoice"),
+        run: () => go("/documents/new?type=invoice"),
       },
       {
         label: "New Quotation",
         hint: "Create",
         icon: FilePlus2,
-        run: () => router.push("/documents/new?type=quotation"),
+        run: () => go("/documents/new?type=quotation"),
       },
       {
         label: "Dashboard",
         hint: "Go to",
         icon: LayoutDashboard,
-        run: () => router.push("/dashboard"),
+        run: () => go("/dashboard"),
       },
       {
         label: "All Documents",
         hint: "Go to",
         icon: FileText,
-        run: () => router.push("/documents"),
+        run: () => go("/documents"),
       },
     ],
-    [router],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [onNavigate, router],
   );
 
   const filtered = actions.filter((a) =>

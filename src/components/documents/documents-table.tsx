@@ -2,7 +2,6 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { toast } from "sonner";
 import { ArrowRightLeft, Pencil, Search, Trash2 } from "lucide-react";
 import { formatINR } from "@/lib/format";
@@ -10,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Badge, Card, Select } from "@/components/ui/misc";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { SpinnerLink } from "@/components/ui/spinner-link";
 import { convertToInvoice, deleteDocument } from "@/app/(app)/documents/actions";
 import type { DocumentRecord } from "@/lib/types";
 
@@ -179,8 +179,9 @@ export function DocumentsTable({ rows }: { rows: DocumentRecord[] }) {
                         <ArrowRightLeft className="size-3.5" /> To Invoice
                       </Button>
                     )}
-                    <Link
+                    <SpinnerLink
                       href={`/documents/${r.id}/edit`}
+                      replaceContent
                       className={cn(
                         buttonVariants({ variant: "ghost", size: "icon" }),
                         "size-8",
@@ -188,7 +189,7 @@ export function DocumentsTable({ rows }: { rows: DocumentRecord[] }) {
                       title="Edit"
                     >
                       <Pencil className="size-3.5" />
-                    </Link>
+                    </SpinnerLink>
                     <Button
                       variant="ghost"
                       size="icon"

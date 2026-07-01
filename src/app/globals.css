@@ -60,6 +60,15 @@
   }
 }
 
+@keyframes nav-progress {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(400%);
+  }
+}
+
 @layer utilities {
   .text-balance {
     text-wrap: balance;
