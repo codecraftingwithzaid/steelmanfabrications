@@ -8,7 +8,6 @@ import {
   Eye,
   EyeOff,
   Loader2,
-  Printer,
   Save,
 } from "lucide-react";
 import {
@@ -234,19 +233,19 @@ export function DocumentEditor({
     }
   }
 
-  function onPrint() {
-    const encoded =
-      typeof window !== "undefined"
-        ? btoa(unescape(encodeURIComponent(JSON.stringify(draft))))
-            .replace(/\+/g, "-")
-            .replace(/\//g, "_")
-            .replace(/=+$/, "")
-        : "";
-    const w = window.open(`/print?d=${encoded}`, "_blank");
-    if (w) {
-      w.addEventListener("load", () => setTimeout(() => w.print(), 400));
-    }
-  }
+  // function onPrint() {
+  //   const encoded =
+  //     typeof window !== "undefined"
+  //       ? btoa(unescape(encodeURIComponent(JSON.stringify(draft))))
+  //           .replace(/\+/g, "-")
+  //           .replace(/\//g, "_")
+  //           .replace(/=+$/, "")
+  //       : "";
+  //   const w = window.open(`/print?d=${encoded}`, "_blank");
+  //   if (w) {
+  //     w.addEventListener("load", () => setTimeout(() => w.print(), 400));
+  //   }
+  // }
 
   return (
     <div className="space-y-4">
