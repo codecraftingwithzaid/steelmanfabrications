@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { DocumentDraft } from "@/lib/types";
+import { pdfFileName } from "@/lib/format";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -50,7 +51,7 @@ export async function POST(req: NextRequest) {
       margin: { top: "0", right: "0", bottom: "0", left: "0" },
     });
 
-    const fileName = `${draft.docNumber || draft.docType}.pdf`;
+    const fileName = `${pdfFileName(draft)}.pdf`;
     return new NextResponse(pdf as unknown as BodyInit, {
       status: 200,
       headers: {

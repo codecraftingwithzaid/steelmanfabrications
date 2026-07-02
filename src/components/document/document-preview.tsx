@@ -17,6 +17,24 @@ interface Props {
 
 const BASE_FONT_PX = 12.5;
 
+/* ---------------------------------------------------------------------------
+ * Engineering-spec-sheet design tokens. Hard-coded (not theme vars) so the
+ * printed document is always neutral paper regardless of app light/dark mode.
+ * ------------------------------------------------------------------------- */
+const PAPER = "#ffffff";
+const INK = "#161616"; // near-black primary text
+const SECONDARY = "#454a52"; // mid-grey
+const MUTED = "#9aa1ab"; // light-grey
+const HAIRLINE = "#dcdfe4"; // 0.5–1px hairline borders
+const HEAVY = "#161616"; // heavier border (grand total + title block)
+const AMBER = "#b45309"; // single accent — badge, GRAND TOTAL, stamp
+const AMBER_BG = "rgba(217, 119, 6, 0.12)";
+const AMBER_BORDER = "rgba(180, 83, 9, 0.55)";
+
+const OSWALD = "var(--font-oswald), 'Oswald', sans-serif";
+const MONO = "var(--font-plex-mono), 'IBM Plex Mono', ui-monospace, monospace";
+const SANS = "'Helvetica Neue', Arial, sans-serif";
+
 function fmtQty(qty: string): string {
   const n = Number(qty);
   if (!Number.isFinite(n) || n === 0) return qty || "";
@@ -28,10 +46,15 @@ function makeSignature(d: DocumentDraft): string {
   return JSON.stringify({
     t: d.docType,
     n: d.docNumber,
+    dt: d.docDate,
+    v: d.validityOrDueDate,
     c: d.customerName,
+    ph: d.customerPhone,
+    ad: d.customerAddress,
     g: d.gstPercent,
     items: d.items.map((i) => [i.description, i.qty, i.unit, i.rate]),
     terms: d.terms,
+    ct: [d.contact.name, d.contact.email, d.contact.phone],
   });
 }
 
@@ -75,12 +98,11 @@ export function DocumentPreview({ draft, printMode = false, onFitted }: Props) {
   }, [signature, scale, onFitted]);
 
   const isInvoice = draft.docType === "invoice";
-  const title = isInvoice ? "INVOICE" : "QUOTATION";
-  const noLabel = isInvoice ? "Invoice No" : "Quotation No";
-  const dateLabel = "Date";
-  const thirdLabel = isInvoice ? "Due Date" : "Validity";
-  const forLabel = isInvoice ? "Invoice For" : "Quotation For";
+  const badgeText = isInvoice ? "INVOICE" : "QUOTATION";
+  const thirdLabel = isInvoice ? "DUE DATE" : "VALIDITY";
+  const clientLabel = isInvoice ? "BILL TO" : "QUOTATION FOR / SITE";
   const gstin = draft.customerGstin.trim() || "URP";
+  const hasGst = draft.gstPercent !== "" && Number(draft.gstPercent) > 0;
 
   // Base font scales with density; paddings use em so they scale together.
   const pageStyle: React.CSSProperties = {
@@ -111,65 +133,103 @@ export function DocumentPreview({ draft, printMode = false, onFitted }: Props) {
         height: "297mm",
         padding: "10mm",
         boxSizing: "border-box",
-        background: "#ffffff",
-        color: "#111827",
+        background: PAPER,
+        color: INK,
         display: "flex",
         flexDirection: "column",
-        fontFamily: "'Helvetica Neue', Arial, sans-serif",
+        justifyContent: "space-between",
+        fontFamily: SANS,
         lineHeight: 1.3,
         ...pageStyle,
-        ...(printMode
-          ? {}
-          : {
-              boxShadow: "0 10px 40px rgba(0,0,0,0.18)",
-              borderRadius: 4,
-            }),
+        ...(printMode ? {} : { border: `1px solid ${HAIRLINE}` }),
       }}
     >
-      {/* ============================ HEADER ============================ */}
-      <header style={{ borderBottom: "2px solid #111827", paddingBottom: "0.6em" }}>
-        <div
+      {/* ===================== TOP GROUP (fixed height) ===================== */}
+      <div style={{ flex: "0 0 auto" }}>
+        {/* ------------------------- HEADER ------------------------- */}
+        <header
           style={{
             display: "flex",
             justifyContent: "space-between",
             alignItems: "flex-start",
             gap: "1em",
+            breakInside: "avoid",
           }}
         >
-          <div style={{ maxWidth: "62%" }}>
+          <div style={{ maxWidth: "60%" }}>
             <div
               style={{
-                fontSize: "1.05em",
-                fontWeight: 800,
-                letterSpacing: "0.02em",
-                lineHeight: 1.15,
+                fontFamily: OSWALD,
+                fontWeight: 700,
+                fontSize: "2.1em",
+                lineHeight: 1,
+                letterSpacing: "0.14em",
+                color: INK,
               }}
             >
-              {COMPANY.name}
+              STEELMAN
             </div>
-            {COMPANY.addressLines.map((l) => (
-              <div key={l} style={{ color: "#374151" }}>
-                {l}
-              </div>
-            ))}
-            <div style={{ color: "#374151" }}>{COMPANY.phone}</div>
+            <div
+              style={{
+                fontFamily: OSWALD,
+                fontWeight: 500,
+                fontSize: "0.82em",
+                letterSpacing: "0.24em",
+                color: SECONDARY,
+                marginTop: "0.25em",
+              }}
+            >
+              FABRICATION &amp; ALUMINIUM WORKS
+            </div>
+            <div
+              style={{
+                color: SECONDARY,
+                fontSize: "0.82em",
+                marginTop: "0.5em",
+                lineHeight: 1.45,
+              }}
+            >
+              {COMPANY.addressLines.map((l) => (
+                <div key={l}>{l}</div>
+              ))}
+              <div style={{ fontFamily: MONO }}>Ph {COMPANY.phone}</div>
+            </div>
           </div>
 
-          <div style={{ textAlign: "right" }}>
-            <div
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "flex-end",
+              gap: "0.6em",
+            }}
+          >
+            <span
               style={{
-                fontSize: "1.8em",
-                fontWeight: 800,
-                letterSpacing: "0.06em",
-                color: "#c2410c",
+                fontFamily: OSWALD,
+                fontWeight: 600,
+                fontSize: "1.15em",
+                letterSpacing: "0.18em",
+                color: AMBER,
+                background: AMBER_BG,
+                border: `1px solid ${AMBER_BORDER}`,
+                borderRadius: "4px",
+                padding: "0.25em 0.9em",
               }}
             >
-              {title}
-            </div>
-            <table style={{ marginLeft: "auto", marginTop: "0.4em" }}>
+              {badgeText}
+            </span>
+            <table
+              style={{
+                fontFamily: MONO,
+                fontVariantNumeric: "tabular-nums",
+                fontSize: "0.8em",
+                borderCollapse: "collapse",
+              }}
+            >
               <tbody>
-                <MetaRow label={noLabel} value={draft.docNumber || "—"} />
-                <MetaRow label={dateLabel} value={draft.docDate || "—"} />
+                <MetaRow label="DOC NO" value={draft.docNumber || "—"} />
+                <MetaRow label="DATE" value={draft.docDate || "—"} />
                 <MetaRow
                   label={thirdLabel}
                   value={draft.validityOrDueDate || "—"}
@@ -177,34 +237,76 @@ export function DocumentPreview({ draft, printMode = false, onFitted }: Props) {
               </tbody>
             </table>
           </div>
-        </div>
+        </header>
 
+        {/* --------------------- RULER-TICK DIVIDER --------------------- */}
+        <RulerTick />
+
+        {/* ----------------------- CLIENT / SITE ----------------------- */}
         <div
           style={{
             display: "flex",
             justifyContent: "space-between",
-            marginTop: "0.6em",
-            gap: "1em",
+            alignItems: "flex-start",
+            gap: "1.5em",
+            marginTop: "0.5em",
           }}
         >
-          <div>
-            <span style={{ fontWeight: 700 }}>{forLabel}: </span>
-            <span>{draft.customerName || "—"}</span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <FieldLabel>{clientLabel}</FieldLabel>
+            <div
+              style={{ fontWeight: 700, fontSize: "1.02em", marginTop: "0.1em" }}
+            >
+              {draft.customerName || "—"}
+            </div>
+            {draft.customerAddress.trim() && (
+              <div
+                style={{
+                  color: SECONDARY,
+                  fontSize: "0.85em",
+                  whiteSpace: "pre-line",
+                  marginTop: "0.1em",
+                }}
+              >
+                {draft.customerAddress}
+              </div>
+            )}
+            {draft.customerPhone.trim() && (
+              <div
+                style={{
+                  color: SECONDARY,
+                  fontSize: "0.85em",
+                  fontFamily: MONO,
+                }}
+              >
+                Ph {draft.customerPhone}
+              </div>
+            )}
           </div>
-          <div>
-            <span style={{ fontWeight: 700 }}>GSTIN: </span>
-            <span>{gstin}</span>
+          <div style={{ textAlign: "right" }}>
+            <FieldLabel>GSTIN</FieldLabel>
+            <div
+              style={{
+                fontFamily: MONO,
+                fontVariantNumeric: "tabular-nums",
+                fontSize: "0.95em",
+                marginTop: "0.1em",
+              }}
+            >
+              {gstin}
+            </div>
           </div>
         </div>
-      </header>
+      </div>
 
-      {/* ========================= LINE ITEMS ========================== */}
+      {/* ===================== LINE ITEMS (flex-grow) ===================== */}
       <div
         ref={itemsWrapRef}
         style={{
           flex: "1 1 auto",
+          minHeight: 0,
           overflow: "hidden",
-          marginTop: "0.5em",
+          marginTop: "0.6em",
           display: "flex",
           flexDirection: "column",
         }}
@@ -218,8 +320,14 @@ export function DocumentPreview({ draft, printMode = false, onFitted }: Props) {
           }}
         >
           <thead>
-            <tr style={{ background: "#111827", color: "#fff" }}>
-              <Th style={{ width: "8%", textAlign: "center" }}>SR NO.</Th>
+            <tr
+              style={{
+                background: "#f4f5f6",
+                borderTop: `1px solid ${HAIRLINE}`,
+                borderBottom: `1px solid ${HAIRLINE}`,
+              }}
+            >
+              <Th style={{ width: "7%", textAlign: "center" }}>SR</Th>
               <Th>NAME OF PRODUCT</Th>
               <Th style={{ width: "10%", textAlign: "right" }}>QTY</Th>
               <Th style={{ width: "10%", textAlign: "center" }}>UNIT</Th>
@@ -233,18 +341,29 @@ export function DocumentPreview({ draft, printMode = false, onFitted }: Props) {
               const r = Number(item.rate);
               const total =
                 Number.isFinite(q) && Number.isFinite(r) ? q * r : 0;
+              const filled = item.description || item.qty || item.rate;
               return (
-                <tr key={item.key} style={{ borderBottom: "1px solid #d1d5db" }}>
-                  <Td style={{ textAlign: "center" }}>
-                    {item.description || item.qty || item.rate ? idx + 1 : ""}
+                <tr key={item.key} style={{ borderBottom: `1px solid ${HAIRLINE}` }}>
+                  <Td
+                    style={{
+                      textAlign: "center",
+                      fontFamily: MONO,
+                      color: MUTED,
+                    }}
+                  >
+                    {filled ? String(idx + 1).padStart(2, "0") : ""}
                   </Td>
                   <Td>{item.description}</Td>
-                  <Td style={{ textAlign: "right" }}>{fmtQty(item.qty)}</Td>
-                  <Td style={{ textAlign: "center" }}>{item.unit}</Td>
-                  <Td style={{ textAlign: "right" }}>
+                  <Td style={{ textAlign: "right", fontFamily: MONO }} numeric>
+                    {fmtQty(item.qty)}
+                  </Td>
+                  <Td style={{ textAlign: "center", fontFamily: MONO }}>
+                    {item.unit}
+                  </Td>
+                  <Td style={{ textAlign: "right", fontFamily: MONO }} numeric>
                     {item.rate === "" ? "" : formatNumberIN(r)}
                   </Td>
-                  <Td style={{ textAlign: "right" }}>
+                  <Td style={{ textAlign: "right", fontFamily: MONO }} numeric>
                     {item.description || item.rate ? formatNumberIN(total) : ""}
                   </Td>
                 </tr>
@@ -256,106 +375,253 @@ export function DocumentPreview({ draft, printMode = false, onFitted }: Props) {
         <div style={{ flex: "1 1 auto" }} />
       </div>
 
-      {/* =========================== FOOTER ============================ */}
-      <footer style={{ breakInside: "avoid", marginTop: "0.4em" }}>
+      {/* ======================= FOOTER (fixed) ======================= */}
+      <footer style={{ flex: "0 0 auto", marginTop: "0.5em" }}>
+        {/* ---------------- Amount in words + totals ---------------- */}
         <div
           style={{
             display: "flex",
             justifyContent: "space-between",
             alignItems: "flex-start",
-            borderTop: "2px solid #111827",
-            paddingTop: "0.5em",
-            gap: "1em",
+            borderTop: `1px solid ${HAIRLINE}`,
+            paddingTop: "0.6em",
+            gap: "1.5em",
+            breakInside: "avoid",
           }}
         >
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 700 }}>Amount In Words</div>
-            <div style={{ color: "#374151", maxWidth: "95%" }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <FieldLabel>Amount In Words</FieldLabel>
+            <div
+              style={{
+                color: INK,
+                maxWidth: "95%",
+                marginTop: "0.15em",
+                fontSize: "0.92em",
+              }}
+            >
               {amountToWords(totals.grandTotal)}
             </div>
           </div>
-          <table style={{ minWidth: "42%" }}>
-            <tbody>
-              <TotalRow
-                label="Subtotal"
-                value={`₹ ${formatNumberIN(totals.subtotal)}`}
-              />
-              {draft.gstPercent !== "" && Number(draft.gstPercent) > 0 && (
-                <TotalRow
-                  label={`GST @ ${Number(draft.gstPercent)}%`}
-                  value={`₹ ${formatNumberIN(totals.gstAmount)}`}
-                />
-              )}
-              <tr>
-                <td
-                  style={{
-                    fontWeight: 800,
-                    fontSize: "1.15em",
-                    padding: "0.35em 0.6em 0.35em 0",
-                    borderTop: "1px solid #111827",
-                  }}
-                >
-                  Total Amount
-                </td>
-                <td
-                  style={{
-                    fontWeight: 800,
-                    fontSize: "1.15em",
-                    textAlign: "right",
-                    padding: "0.35em 0",
-                    borderTop: "1px solid #111827",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  ₹ {formatNumberIN(totals.grandTotal)}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
 
-        <div style={{ marginTop: "0.6em" }}>
-          <div style={{ fontWeight: 700 }}>Terms And Conditions :</div>
-          <div style={{ color: "#374151", whiteSpace: "pre-line" }}>
-            {draft.terms}
+          <div style={{ minWidth: "44%" }}>
+            <table
+              style={{
+                width: "100%",
+                fontFamily: MONO,
+                fontVariantNumeric: "tabular-nums",
+                borderCollapse: "collapse",
+                fontSize: "0.92em",
+              }}
+            >
+              <tbody>
+                <TotalRow
+                  label="SUBTOTAL"
+                  value={`₹ ${formatNumberIN(totals.subtotal)}`}
+                />
+                {hasGst && (
+                  <TotalRow
+                    label={`GST @ ${Number(draft.gstPercent)}%`}
+                    value={`₹ ${formatNumberIN(totals.gstAmount)}`}
+                  />
+                )}
+              </tbody>
+            </table>
+
+            {/* Grand Total — bordered (not filled) box */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "baseline",
+                gap: "1em",
+                marginTop: "0.5em",
+                border: `1.5px solid ${HEAVY}`,
+                padding: "0.4em 0.7em",
+              }}
+            >
+              <span
+                style={{
+                  fontFamily: OSWALD,
+                  fontWeight: 600,
+                  letterSpacing: "0.12em",
+                  color: AMBER,
+                  fontSize: "0.95em",
+                }}
+              >
+                GRAND TOTAL
+              </span>
+              <span
+                style={{
+                  fontFamily: MONO,
+                  fontVariantNumeric: "tabular-nums",
+                  fontWeight: 600,
+                  fontSize: "1.35em",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                ₹ {formatNumberIN(totals.grandTotal)}
+              </span>
+            </div>
           </div>
         </div>
 
-        <div style={{ marginTop: "0.6em", color: "#374151" }}>
-          If you have any questions concerning this{" "}
-          {isInvoice ? "invoice" : "quotation"}, please reach{" "}
-          {draft.contact.name || "our contact person"}.
-        </div>
-
+        {/* ------------- Terms/contact  |  title block/stamp ------------- */}
         <div
           style={{
             display: "flex",
             justifyContent: "space-between",
-            alignItems: "flex-end",
+            alignItems: "flex-start",
+            gap: "1.5em",
             marginTop: "0.8em",
-            gap: "1em",
           }}
         >
-          <div style={{ fontSize: "0.92em" }}>
+          {/* Left column */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <FieldLabel>Terms &amp; Conditions</FieldLabel>
             <div
               style={{
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
-                color: "#6b7280",
+                color: SECONDARY,
+                whiteSpace: "pre-line",
                 fontSize: "0.85em",
+                marginTop: "0.15em",
+                lineHeight: 1.5,
               }}
             >
-              Contact Person
+              {draft.terms}
             </div>
-            <div style={{ fontWeight: 700 }}>{draft.contact.name || "—"}</div>
-            <div>{draft.contact.email}</div>
-            <div>{draft.contact.phone}</div>
+
+            <div style={{ marginTop: "0.9em", breakInside: "avoid" }}>
+              <FieldLabel>Contact Person</FieldLabel>
+              <div
+                style={{ fontWeight: 700, fontSize: "0.9em", marginTop: "0.1em" }}
+              >
+                {draft.contact.name || "—"}
+              </div>
+              <div
+                style={{
+                  color: SECONDARY,
+                  fontSize: "0.82em",
+                  fontFamily: MONO,
+                }}
+              >
+                {draft.contact.email}
+              </div>
+              <div
+                style={{
+                  color: SECONDARY,
+                  fontSize: "0.82em",
+                  fontFamily: MONO,
+                }}
+              >
+                {draft.contact.phone}
+              </div>
+            </div>
           </div>
-          <div style={{ textAlign: "right" }}>
-            <div style={{ fontWeight: 700 }}>For, {COMPANY.name}</div>
-            <div style={{ height: "2.4em" }} />
-            <div style={{ borderTop: "1px solid #111827", paddingTop: "0.2em" }}>
-              Authorized Signature
+
+          {/* Right column — blueprint title block + stamp + signature */}
+          <div
+            style={{
+              width: "44%",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "stretch",
+              breakInside: "avoid",
+            }}
+          >
+            <table
+              style={{
+                width: "100%",
+                borderCollapse: "collapse",
+                fontFamily: MONO,
+                fontSize: "0.78em",
+                border: `1.5px solid ${HEAVY}`,
+              }}
+            >
+              <tbody>
+                <TitleBlockRow
+                  label="DOCUMENT"
+                  value={isInvoice ? "INVOICE" : "QUOTATION"}
+                />
+                <TitleBlockRow label="DOC NO" value={draft.docNumber || "—"} />
+                <TitleBlockRow label="REV" value="00" />
+                <TitleBlockRow
+                  label="PREPARED BY"
+                  value={draft.contact.name || "—"}
+                  last
+                />
+              </tbody>
+            </table>
+
+            {/* Stamp + signature */}
+            <div
+              style={{
+                position: "relative",
+                marginTop: "0.7em",
+                minHeight: "4.6em",
+              }}
+            >
+              <div
+                style={{
+                  fontFamily: OSWALD,
+                  fontWeight: 600,
+                  fontSize: "0.85em",
+                  color: INK,
+                  textAlign: "right",
+                }}
+              >
+                For, STEELMAN
+              </div>
+
+              {/* Ink stamp — circular amber outline, rotated */}
+              <div
+                aria-hidden
+                style={{
+                  position: "absolute",
+                  left: "0.5em",
+                  top: "0.2em",
+                  width: "4.4em",
+                  height: "4.4em",
+                  borderRadius: "50%",
+                  border: `1.5px solid ${AMBER}`,
+                  transform: "rotate(-9deg)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  textAlign: "center",
+                  color: AMBER,
+                  opacity: 0.85,
+                }}
+              >
+                <span
+                  style={{
+                    fontFamily: OSWALD,
+                    fontWeight: 600,
+                    fontSize: "0.62em",
+                    letterSpacing: "0.14em",
+                    lineHeight: 1.25,
+                  }}
+                >
+                  STEELMAN
+                  <br />
+                  INDORE
+                </span>
+              </div>
+
+              <div
+                style={{
+                  marginTop: "3.2em",
+                  borderTop: `1px solid ${HEAVY}`,
+                  paddingTop: "0.2em",
+                  textAlign: "right",
+                  fontFamily: OSWALD,
+                  fontWeight: 500,
+                  fontSize: "0.8em",
+                  letterSpacing: "0.08em",
+                  color: SECONDARY,
+                }}
+              >
+                AUTHORIZED SIGNATURE
+              </div>
             </div>
           </div>
         </div>
@@ -364,13 +630,76 @@ export function DocumentPreview({ draft, printMode = false, onFitted }: Props) {
   );
 }
 
+/* ------------------------------ subcomponents ------------------------------ */
+
+function RulerTick() {
+  // Full-width hairline tick strip. userSpaceOnUse patterns keep tick spacing
+  // constant (~8px) regardless of the rendered container width.
+  return (
+    <svg
+      width="100%"
+      height="18"
+      style={{ display: "block", marginTop: "0.6em" }}
+      aria-hidden
+    >
+      <defs>
+        <pattern
+          id="ruler-tick-sm"
+          width="8"
+          height="18"
+          patternUnits="userSpaceOnUse"
+        >
+          <line x1="0.5" y1="11" x2="0.5" y2="18" stroke={HAIRLINE} strokeWidth="1" />
+        </pattern>
+        <pattern
+          id="ruler-tick-lg"
+          width="40"
+          height="18"
+          patternUnits="userSpaceOnUse"
+        >
+          <line x1="0.5" y1="5" x2="0.5" y2="18" stroke={MUTED} strokeWidth="1" />
+        </pattern>
+      </defs>
+      <rect width="100%" height="18" fill="url(#ruler-tick-sm)" />
+      <rect width="100%" height="18" fill="url(#ruler-tick-lg)" />
+      <line x1="0" y1="18" x2="100%" y2="18" stroke={HEAVY} strokeWidth="1" />
+    </svg>
+  );
+}
+
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      style={{
+        fontFamily: OSWALD,
+        fontWeight: 600,
+        fontSize: "0.66em",
+        letterSpacing: "0.16em",
+        textTransform: "uppercase",
+        color: MUTED,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
 function MetaRow({ label, value }: { label: string; value: string }) {
   return (
     <tr>
-      <td style={{ fontWeight: 600, padding: "0.1em 0.6em 0.1em 0", textAlign: "left" }}>
+      <td
+        style={{
+          color: MUTED,
+          padding: "0.12em 0.7em 0.12em 0",
+          textAlign: "left",
+          letterSpacing: "0.08em",
+        }}
+      >
         {label}
       </td>
-      <td style={{ padding: "0.1em 0", textAlign: "left" }}>: {value}</td>
+      <td style={{ padding: "0.12em 0", textAlign: "right", color: INK }}>
+        {value}
+      </td>
     </tr>
   );
 }
@@ -378,8 +707,58 @@ function MetaRow({ label, value }: { label: string; value: string }) {
 function TotalRow({ label, value }: { label: string; value: string }) {
   return (
     <tr>
-      <td style={{ padding: "0.2em 0.6em 0.2em 0" }}>{label}</td>
-      <td style={{ padding: "0.2em 0", textAlign: "right", whiteSpace: "nowrap" }}>
+      <td
+        style={{
+          padding: "0.22em 0.7em 0.22em 0",
+          color: SECONDARY,
+          letterSpacing: "0.06em",
+        }}
+      >
+        {label}
+      </td>
+      <td
+        style={{
+          padding: "0.22em 0",
+          textAlign: "right",
+          whiteSpace: "nowrap",
+          color: INK,
+        }}
+      >
+        {value}
+      </td>
+    </tr>
+  );
+}
+
+function TitleBlockRow({
+  label,
+  value,
+  last = false,
+}: {
+  label: string;
+  value: string;
+  last?: boolean;
+}) {
+  const cell: React.CSSProperties = {
+    padding: "0.3em 0.55em",
+    borderBottom: last ? "none" : `1px solid ${HAIRLINE}`,
+    verticalAlign: "middle",
+  };
+  return (
+    <tr>
+      <td
+        style={{
+          ...cell,
+          color: MUTED,
+          letterSpacing: "0.08em",
+          borderRight: `1px solid ${HAIRLINE}`,
+          width: "42%",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {label}
+      </td>
+      <td style={{ ...cell, color: INK, textAlign: "right", wordBreak: "break-word" }}>
         {value}
       </td>
     </tr>
@@ -397,9 +776,13 @@ function Th({
     <th
       style={{
         textAlign: "left",
-        padding: "0.45em 0.6em",
-        fontSize: "0.9em",
-        letterSpacing: "0.03em",
+        padding: "0.5em 0.6em",
+        fontFamily: MONO,
+        fontWeight: 600,
+        fontSize: "0.78em",
+        letterSpacing: "0.1em",
+        color: SECONDARY,
+        textTransform: "uppercase",
         ...style,
       }}
     >
@@ -411,15 +794,19 @@ function Th({
 function Td({
   children,
   style,
+  numeric = false,
 }: {
   children: React.ReactNode;
   style?: React.CSSProperties;
+  numeric?: boolean;
 }) {
   return (
     <td
       style={{
         padding: "0.4em 0.6em",
         verticalAlign: "top",
+        color: INK,
+        ...(numeric ? { fontVariantNumeric: "tabular-nums" } : {}),
         ...style,
       }}
     >

@@ -13,6 +13,23 @@ export type QuotationStatus =
   | "expired";
 export type DocumentStatus = InvoiceStatus | QuotationStatus;
 
+/** Valid statuses per document type — mirrors the DB check constraint. */
+export const STATUSES_BY_TYPE: Record<DocType, DocumentStatus[]> = {
+  invoice: ["draft", "sent", "paid", "overdue"],
+  quotation: ["draft", "sent", "accepted", "rejected", "expired"],
+};
+
+/** Human-friendly labels for each status. */
+export const STATUS_LABELS: Record<DocumentStatus, string> = {
+  draft: "Draft",
+  sent: "Sent",
+  paid: "Paid",
+  overdue: "Overdue",
+  accepted: "Accepted",
+  rejected: "Rejected",
+  expired: "Expired",
+};
+
 export interface Profile {
   id: string;
   full_name: string | null;
@@ -64,6 +81,8 @@ export interface DocumentRecord {
   customer_id: string | null;
   customer_name: string | null;
   customer_gstin: string | null;
+  customer_phone: string | null;
+  customer_address: string | null;
   doc_date: string;
   validity_or_due_date: string | null;
   gst_percent: number | null;
@@ -98,6 +117,8 @@ export interface DocumentDraft {
   validityOrDueDate: string;
   customerName: string;
   customerGstin: string;
+  customerPhone: string;
+  customerAddress: string;
   items: EditorLineItem[];
   gstPercent: string;
   terms: string;

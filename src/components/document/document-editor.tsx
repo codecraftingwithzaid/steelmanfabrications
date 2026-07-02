@@ -18,7 +18,7 @@ import {
   type CategorySlug,
 } from "@/lib/catalog";
 import { computeTotals } from "@/lib/calc";
-import { amountToWords, formatINR } from "@/lib/format";
+import { amountToWords, formatINR, pdfFileName } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { createDocument, updateDocument } from "@/app/(app)/documents/actions";
 import { Button } from "@/components/ui/button";
@@ -81,6 +81,8 @@ export function DocumentEditor({
         validityOrDueDate: "",
         customerName: "",
         customerGstin: "",
+        customerPhone: "",
+        customerAddress: "",
         items: [newItem("fabrication")],
         gstPercent: "",
         terms: DEFAULT_TERMS,
@@ -92,6 +94,16 @@ export function DocumentEditor({
   const [pdfLoading, setPdfLoading] = useState(false);
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const restored = useRef(false);
+
+  // Collapse the live preview by default on small screens (below Tailwind's lg).
+  const previewDefaulted = useRef(false);
+  useEffect(() => {
+    if (previewDefaulted.current) return;
+    previewDefaulted.current = true;
+    if (!window.matchMedia("(min-width: 1024px)").matches) {
+      setShowPreview(false);
+    }
+  }, []);
 
   // Restore autosaved draft once (create mode only).
   useEffect(() => {
@@ -212,7 +224,7 @@ export function DocumentEditor({
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${draft.docNumber || draft.docType}.pdf`;
+      a.download = `${pdfFileName(draft)}.pdf`;
       a.click();
       URL.revokeObjectURL(url);
     } catch {
@@ -263,14 +275,14 @@ export function DocumentEditor({
             {showPreview ? <EyeOff /> : <Eye />}
             {showPreview ? "Hide" : "Show"} preview
           </Button>
-          <Button
+          {/* <Button
             variant="outline"
             size="sm"
             onClick={onPrint}
             className="gap-1.5"
           >
             <Printer className="size-4" /> Print
-          </Button>
+          </Button> */}
           <Button
             variant="outline"
             size="sm"
@@ -366,6 +378,22 @@ export function DocumentEditor({
                   value={draft.customerName}
                   placeholder="Customer / company name"
                   onChange={(e) => patch({ customerName: e.target.value })}
+                />
+              </Field>
+              <Field label="Customer Mobile No" className="sm:col-span-2">
+                <Input
+                  type="tel"
+                  value={draft.customerPhone}
+                  placeholder="e.g. +91 98765 43210"
+                  onChange={(e) => patch({ customerPhone: e.target.value })}
+                />
+              </Field>
+              <Field label="Customer Address" className="sm:col-span-2 lg:col-span-4">
+                <Textarea
+                  rows={2}
+                  value={draft.customerAddress}
+                  placeholder="Billing / shipping address"
+                  onChange={(e) => patch({ customerAddress: e.target.value })}
                 />
               </Field>
             </div>

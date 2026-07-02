@@ -1,17 +1,33 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition, useRef, useLayoutEffect } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowRightLeft, Pencil, Search, Trash2 } from "lucide-react";
+import {
+  ArrowRightLeft,
+  CircleDot,
+  Pencil,
+  Search,
+  Trash2,
+} from "lucide-react";
 import { formatINR } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Badge, Card, Select } from "@/components/ui/misc";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { SpinnerLink } from "@/components/ui/spinner-link";
-import { convertToInvoice, deleteDocument } from "@/app/(app)/documents/actions";
-import type { DocumentRecord } from "@/lib/types";
+import {
+  convertToInvoice,
+  deleteDocument,
+  updateDocumentStatus,
+} from "@/app/(app)/documents/actions";
+import {
+  STATUSES_BY_TYPE,
+  STATUS_LABELS,
+  type DocumentRecord,
+  type DocumentStatus,
+} from "@/lib/types";
 
 const STATUS_VARIANT: Record<
   string,
@@ -74,10 +90,22 @@ export function DocumentsTable({ rows }: { rows: DocumentRecord[] }) {
     });
   }
 
+  function changeStatus(doc: DocumentRecord, status: DocumentStatus) {
+    if (status === doc.status) return;
+    startTransition(async () => {
+      const res = await updateDocumentStatus(doc.id, status);
+      if (res.error) toast.error(res.error);
+      else {
+        toast.success(`${doc.doc_number} marked ${status}`);
+        router.refresh();
+      }
+    });
+  }
+
   return (
     <Card className="overflow-hidden">
       <div className="flex flex-wrap items-center gap-2 border-b border-border p-3">
-        <div className="relative flex-1 min-w-[200px]">
+        <div className="relative w-full min-w-0 sm:flex-1 sm:min-w-[200px]">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             className="pl-9"
@@ -87,7 +115,7 @@ export function DocumentsTable({ rows }: { rows: DocumentRecord[] }) {
           />
         </div>
         <Select
-          className="w-40"
+          className="flex-1 sm:w-40 sm:flex-none"
           value={type}
           onChange={(e) => setType(e.target.value)}
         >
@@ -96,7 +124,7 @@ export function DocumentsTable({ rows }: { rows: DocumentRecord[] }) {
           <option value="quotation">Quotations</option>
         </Select>
         <Select
-          className="w-40"
+          className="flex-1 sm:w-40 sm:flex-none"
           value={status}
           onChange={(e) => setStatus(e.target.value)}
         >
@@ -179,6 +207,11 @@ export function DocumentsTable({ rows }: { rows: DocumentRecord[] }) {
                         <ArrowRightLeft className="size-3.5" /> To Invoice
                       </Button>
                     )}
+                    <StatusMenu
+                      doc={r}
+                      disabled={pending}
+                      onSelect={(s) => changeStatus(r, s)}
+                    />
                     <SpinnerLink
                       href={`/documents/${r.id}/edit`}
                       replaceContent
@@ -208,5 +241,127 @@ export function DocumentsTable({ rows }: { rows: DocumentRecord[] }) {
         </table>
       </div>
     </Card>
+  );
+}
+
+/**
+ * A normal icon button that opens a dropdown of all valid statuses for the
+ * document type. The menu is rendered in a portal (fixed-positioned under the
+ * button) so it is never clipped by the table's horizontal-scroll container.
+ * Clicking an option updates the status immediately.
+ */
+function StatusMenu({
+  doc,
+  disabled,
+  onSelect,
+}: {
+  doc: DocumentRecord;
+  disabled?: boolean;
+  onSelect: (status: DocumentStatus) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [coords, setCoords] = useState<{ top: number; right: number } | null>(
+    null,
+  );
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const options = STATUSES_BY_TYPE[doc.doc_type] ?? [];
+
+  function place() {
+    const el = btnRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    setCoords({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+  }
+
+  function toggle() {
+    if (!open) place();
+    setOpen((o) => !o);
+  }
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    function onDocClick(e: MouseEvent) {
+      const t = e.target as Node;
+      if (
+        !btnRef.current?.contains(t) &&
+        !menuRef.current?.contains(t)
+      ) {
+        setOpen(false);
+      }
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    function onReflow() {
+      setOpen(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onKey);
+    window.addEventListener("resize", onReflow);
+    window.addEventListener("scroll", onReflow, true);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onKey);
+      window.removeEventListener("resize", onReflow);
+      window.removeEventListener("scroll", onReflow, true);
+    };
+  }, [open]);
+
+  return (
+    <>
+      <Button
+        ref={btnRef}
+        variant="ghost"
+        size="icon"
+        className="size-8"
+        disabled={disabled}
+        onClick={toggle}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        title="Update status"
+      >
+        <CircleDot className="size-3.5" />
+      </Button>
+
+      {open &&
+        coords &&
+        createPortal(
+          <div
+            ref={menuRef}
+            role="menu"
+            style={{ position: "fixed", top: coords.top, right: coords.right }}
+            className="z-50 min-w-[9rem] overflow-hidden rounded-md border border-border bg-popover py-1 text-popover-foreground shadow-lg"
+          >
+            <div className="px-3 py-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+              Set status
+            </div>
+            {options.map((s) => {
+              const active = s === doc.status;
+              return (
+                <button
+                  key={s}
+                  role="menuitemradio"
+                  aria-checked={active}
+                  onClick={() => {
+                    setOpen(false);
+                    onSelect(s);
+                  }}
+                  className={cn(
+                    "flex w-full items-center justify-between gap-4 px-3 py-1.5 text-left text-sm transition-colors hover:bg-secondary",
+                    active
+                      ? "font-medium text-foreground"
+                      : "text-muted-foreground",
+                  )}
+                >
+                  {STATUS_LABELS[s]}
+                  {active && <CircleDot className="size-3 text-primary" />}
+                </button>
+              );
+            })}
+          </div>,
+          document.body,
+        )}
+    </>
   );
 }

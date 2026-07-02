@@ -89,6 +89,8 @@ export default async function EditDocumentPage({
     validityOrDueDate: doc.validity_or_due_date ?? "",
     customerName: doc.customer_name ?? "",
     customerGstin: doc.customer_gstin ?? "",
+    customerPhone: doc.customer_phone ?? "",
+    customerAddress: doc.customer_address ?? "",
     items: items.length
       ? items
       : [

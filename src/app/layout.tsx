@@ -1,5 +1,6 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
+import { Oswald, IBM_Plex_Mono } from "next/font/google";
 import { Toaster } from "sonner";
 import "./globals.css";
 
@@ -14,10 +15,31 @@ const geistMono = localFont({
   weight: "100 900",
 });
 
+// Document template fonts — self-hosted by next/font so they are embedded in
+// the Puppeteer-generated PDF, not just the on-screen preview.
+const oswald = Oswald({
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
+  variable: "--font-oswald",
+  display: "swap",
+});
+const plexMono = IBM_Plex_Mono({
+  subsets: ["latin"],
+  weight: ["500", "600"],
+  variable: "--font-plex-mono",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: "Steelman Billing",
   description:
     "Invoice & Quotation platform for Steelman Fabrication & Aluminium Windows Works",
+};
+
+// Explicit, accessible viewport (device width, user zoom kept enabled).
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
 };
 
 // Set the theme class before hydration to avoid a flash of the wrong theme.
@@ -31,7 +53,7 @@ export default function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInit }} />
       </head>
-      <body className={`${geistSans.variable} ${geistMono.variable} font-sans`}>
+      <body className={`${geistSans.variable} ${geistMono.variable} ${oswald.variable} ${plexMono.variable} font-sans`}>
         {children}
         <Toaster richColors position="top-center" />
       </body>

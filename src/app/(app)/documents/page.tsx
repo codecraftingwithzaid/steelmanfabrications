@@ -1,5 +1,6 @@
 import { FilePlus2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 import { SpinnerLink } from "@/components/ui/spinner-link";
 import { DocumentsTable } from "@/components/documents/documents-table";
@@ -22,14 +23,14 @@ export default async function DocumentsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
           <h1 className="text-lg font-semibold">Documents</h1>
           <p className="text-sm text-muted-foreground">
             All invoices and quotations you can access.
           </p>
         </div>
-        <SpinnerLink href="/documents/new" className={buttonVariants({ size: "sm" })}>
+        <SpinnerLink href="/documents/new" className={cn(buttonVariants({ size: "sm" }), "shrink-0")}>
           <FilePlus2 className="size-4" /> New Document
         </SpinnerLink>
       </div>

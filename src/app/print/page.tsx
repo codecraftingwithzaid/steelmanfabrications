@@ -10,6 +10,8 @@ const EMPTY: DocumentDraft = {
   validityOrDueDate: "",
   customerName: "",
   customerGstin: "",
+  customerPhone: "",
+  customerAddress: "",
   items: [],
   gstPercent: "",
   terms: "",

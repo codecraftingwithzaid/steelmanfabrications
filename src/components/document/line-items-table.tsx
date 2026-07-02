@@ -67,30 +67,30 @@ export function LineItemsTable({
   }
 
   return (
-    <div className="rounded-xl border border-border bg-card">
-      <div className="scrollbar-thin overflow-x-auto">
-        <table className="w-full min-w-[860px] text-sm">
-          <thead>
-            <tr className="border-b border-border text-xs uppercase text-muted-foreground">
-              <th className="w-8 px-2 py-2" />
-              <th className="w-10 px-2 py-2 text-left">SR</th>
-              <th className="px-2 py-2 text-left">Name of Product</th>
-              <th className="w-24 px-2 py-2 text-right">Qty</th>
-              <th className="w-28 px-2 py-2 text-left">Unit</th>
-              <th className="w-32 px-2 py-2 text-right">Rate</th>
-              <th className="w-32 px-2 py-2 text-right">Total</th>
-              <th className="w-16 px-2 py-2" />
-            </tr>
-          </thead>
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext
-              items={items.map((i) => i.key)}
-              strategy={verticalListSortingStrategy}
-            >
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragEnd={handleDragEnd}
+    >
+      <SortableContext
+        items={items.map((i) => i.key)}
+        strategy={verticalListSortingStrategy}
+      >
+        <div className="rounded-xl border border-border bg-card">
+          <div className="scrollbar-thin overflow-x-auto">
+            <table className="w-full min-w-[860px] text-sm">
+              <thead>
+                <tr className="border-b border-border text-xs uppercase text-muted-foreground">
+                  <th className="w-8 px-2 py-2" />
+                  <th className="w-10 px-2 py-2 text-left">SR</th>
+                  <th className="px-2 py-2 text-left">Name of Product</th>
+                  <th className="w-24 px-2 py-2 text-right">Qty</th>
+                  <th className="w-28 px-2 py-2 text-left">Unit</th>
+                  <th className="w-32 px-2 py-2 text-right">Rate</th>
+                  <th className="w-32 px-2 py-2 text-right">Total</th>
+                  <th className="w-16 px-2 py-2" />
+                </tr>
+              </thead>
               <tbody>
                 {items.map((item, idx) => (
                   <SortableRow
@@ -105,16 +105,28 @@ export function LineItemsTable({
                   />
                 ))}
               </tbody>
-            </SortableContext>
-          </DndContext>
-        </table>
-      </div>
-      <div className="border-t border-border p-2">
-        <Button variant="outline" size="sm" onClick={onAdd} className="gap-1.5">
-          <Plus className="size-4" /> Add Item
-        </Button>
-      </div>
-    </div>
+            </table>
+          </div>
+          <div className="border-t border-border p-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onAdd}
+              className="gap-1.5"
+            >
+              <Plus className="size-4" /> Add Item
+            </Button>
+          </div>
+
+          {/* Single shared datalist for all unit inputs (valid HTML, no per-row duplication). */}
+          <datalist id="unit-options">
+            {UNITS.map((u) => (
+              <option key={u} value={u} />
+            ))}
+          </datalist>
+        </div>
+      </SortableContext>
+    </DndContext>
   );
 }
 
@@ -296,11 +308,6 @@ function SortableRow({
           </Button>
         </div>
       </td>
-      <datalist id="unit-options">
-        {UNITS.map((u) => (
-          <option key={u} value={u} />
-        ))}
-      </datalist>
     </tr>
   );
 }

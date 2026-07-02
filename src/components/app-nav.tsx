@@ -74,7 +74,7 @@ export function AppNav({
         )}
       </div>
 
-      <div className="mx-auto flex h-14 w-full max-w-7xl items-center gap-2 px-4 md:px-8">
+      <div className="mx-auto flex h-14 w-full max-w-7xl items-center gap-1 px-4 sm:gap-2 md:px-8">
         <Link href="/dashboard" className="flex items-center gap-2 font-bold">
           <span className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-sm font-black text-primary-foreground">
             S
@@ -82,7 +82,7 @@ export function AppNav({
           <span className="hidden sm:inline">Steelman</span>
         </Link>
 
-        <nav className="ml-4 flex items-center gap-1">
+        <nav className="ml-1 flex items-center gap-0.5 sm:ml-4 sm:gap-1">
           {LINKS.map((l) => {
             const active =
               pathname === l.href ||
@@ -99,7 +99,7 @@ export function AppNav({
                 }}
                 aria-busy={isPending}
                 className={cn(
-                  "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+                  "flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors sm:px-3",
                   active
                     ? "bg-secondary text-secondary-foreground"
                     : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",

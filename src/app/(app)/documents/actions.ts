@@ -2,7 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import type { DocumentDraft, DocType } from "@/lib/types";
+import {
+  STATUSES_BY_TYPE,
+  type DocumentDraft,
+  type DocType,
+  type DocumentStatus,
+} from "@/lib/types";
 
 interface SaveResult {
   id?: string;
@@ -42,6 +47,8 @@ export async function createDocument(
       doc_number: docNumber,
       customer_name: draft.customerName || null,
       customer_gstin: draft.customerGstin || null,
+      customer_phone: draft.customerPhone || null,
+      customer_address: draft.customerAddress || null,
       doc_date: draft.docDate || new Date().toISOString().slice(0, 10),
       validity_or_due_date: draft.validityOrDueDate || null,
       gst_percent: gst,
@@ -112,6 +119,8 @@ export async function convertToInvoice(
       customer_id: q.customer_id,
       customer_name: q.customer_name,
       customer_gstin: q.customer_gstin,
+      customer_phone: q.customer_phone,
+      customer_address: q.customer_address,
       doc_date: new Date().toISOString().slice(0, 10),
       gst_percent: q.gst_percent,
       status: "draft",
@@ -167,6 +176,8 @@ export async function updateDocument(
     .update({
       customer_name: draft.customerName || null,
       customer_gstin: draft.customerGstin || null,
+      customer_phone: draft.customerPhone || null,
+      customer_address: draft.customerAddress || null,
       doc_date: draft.docDate || new Date().toISOString().slice(0, 10),
       validity_or_due_date: draft.validityOrDueDate || null,
       gst_percent: gst,
@@ -218,6 +229,46 @@ export async function deleteDocument(id: string): Promise<SaveResult> {
   if (!user) return { error: "Not authenticated" };
 
   const { error } = await supabase.from("documents").delete().eq("id", id);
+  if (error) return { error: error.message };
+
+  revalidatePath("/documents");
+  revalidatePath("/dashboard");
+  return { id };
+}
+
+/** Valid statuses per document type lives in @/lib/types (client-safe). */
+
+/**
+ * Updates a single document's lifecycle status. The status is validated
+ * against the type's allowed set so we never violate the DB check constraint.
+ * Owner/admin enforcement happens via RLS.
+ */
+export async function updateDocumentStatus(
+  id: string,
+  status: DocumentStatus,
+): Promise<SaveResult> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const { data: doc, error: fetchErr } = await supabase
+    .from("documents")
+    .select("doc_type")
+    .eq("id", id)
+    .single();
+  if (fetchErr || !doc) return { error: "Document not found" };
+
+  const allowed = STATUSES_BY_TYPE[doc.doc_type as DocType] ?? [];
+  if (!allowed.includes(status)) {
+    return { error: `Invalid status for a ${doc.doc_type}` };
+  }
+
+  const { error } = await supabase
+    .from("documents")
+    .update({ status })
+    .eq("id", id);
   if (error) return { error: error.message };
 
   revalidatePath("/documents");

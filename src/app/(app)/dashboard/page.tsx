@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { formatINR } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { Badge, Card } from "@/components/ui/misc";
 import { buttonVariants } from "@/components/ui/button";
 import { SpinnerLink } from "@/components/ui/spinner-link";
@@ -115,14 +116,14 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
           <h1 className="text-lg font-semibold">Dashboard</h1>
           <p className="text-sm text-muted-foreground">
             Revenue overview and recent activity.
           </p>
         </div>
-        <SpinnerLink href="/documents/new" className={buttonVariants({ size: "sm" })}>
+        <SpinnerLink href="/documents/new" className={cn(buttonVariants({ size: "sm" }), "shrink-0")}>
           New Document
         </SpinnerLink>
       </div>
@@ -172,10 +173,10 @@ export default async function DashboardPage() {
               {topCustomers.map(([name, total]) => (
                 <li
                   key={name}
-                  className="flex items-center justify-between text-sm"
+                  className="flex items-center justify-between gap-2 text-sm"
                 >
-                  <span className="truncate">{name}</span>
-                  <span className="tabular-nums font-medium">
+                  <span className="min-w-0 truncate">{name}</span>
+                  <span className="shrink-0 tabular-nums font-medium">
                     {formatINR(total)}
                   </span>
                 </li>
@@ -195,16 +196,16 @@ export default async function DashboardPage() {
               {recent.map((d) => (
                 <li
                   key={d.id}
-                  className="flex items-center justify-between py-2 text-sm"
+                  className="flex items-center justify-between gap-2 py-2 text-sm"
                 >
-                  <span className="flex items-center gap-2">
-                    <FileText className="size-4 text-muted-foreground" />
-                    <span className="font-medium">{d.doc_number ?? "—"}</span>
-                    <span className="text-muted-foreground">
+                  <span className="flex min-w-0 items-center gap-2">
+                    <FileText className="size-4 shrink-0 text-muted-foreground" />
+                    <span className="shrink-0 font-medium">{d.doc_number ?? "—"}</span>
+                    <span className="truncate text-muted-foreground">
                       {d.customer_name || "—"}
                     </span>
                   </span>
-                  <span className="flex items-center gap-3">
+                  <span className="flex shrink-0 items-center gap-3">
                     <span className="tabular-nums">
                       {formatINR(Number(d.grand_total || 0))}
                     </span>
@@ -227,13 +228,13 @@ export default async function DashboardPage() {
               {overdue.slice(0, 6).map((d) => (
                 <li
                   key={d.id}
-                  className="flex items-center justify-between text-sm"
+                  className="flex items-center justify-between gap-2 text-sm"
                 >
-                  <span className="font-medium">{d.doc_number}</span>
-                  <span className="text-muted-foreground">
+                  <span className="shrink-0 font-medium">{d.doc_number}</span>
+                  <span className="min-w-0 truncate text-muted-foreground">
                     due {d.validity_or_due_date}
                   </span>
-                  <span className="tabular-nums">
+                  <span className="shrink-0 tabular-nums">
                     {formatINR(Number(d.grand_total || 0))}
                   </span>
                 </li>

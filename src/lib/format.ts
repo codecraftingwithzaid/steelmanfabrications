@@ -122,3 +122,25 @@ export function formatNumberIN(amount: number, fractionDigits = 2): string {
 export function formatINR(amount: number, fractionDigits = 2): string {
   return `₹${formatNumberIN(amount, fractionDigits)}`;
 }
+
+/**
+ * Builds the download file name (without extension) for a document PDF in the
+ * form "customername_docnumber", e.g. "Acme Constructions_INV-0042". Strips
+ * characters that are illegal in file names and collapses whitespace.
+ */
+export function pdfFileName(doc: {
+  customerName?: string | null;
+  docNumber?: string | null;
+  docType?: string | null;
+}): string {
+  const clean = (s: string) =>
+    s
+      .replace(/[\\/:*?"<>|]+/g, "") // filesystem-illegal characters
+      .replace(/\s+/g, " ")
+      .trim();
+
+  const name = clean(doc.customerName ?? "");
+  const number = clean(doc.docNumber ?? "");
+  const base = [name, number].filter(Boolean).join("_");
+  return base || clean(doc.docType ?? "") || "document";
+}
