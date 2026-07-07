@@ -14,6 +14,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@hookform/resolvers": "^5.4.0",
+    "@sparticuz/chromium": "133.0.0",
     "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.110.0",
     "class-variance-authority": "^0.7.1",
@@ -21,7 +22,7 @@
     "date-fns": "^4.4.0",
     "lucide-react": "^1.23.0",
     "next": "14.2.35",
-    "puppeteer": "^25.3.0",
+    "puppeteer-core": "24.2.0",
     "react": "^18",
     "react-dom": "^18",
     "react-hook-form": "^7.80.0",
@@ -37,7 +38,11 @@
     "eslint": "^8",
     "eslint-config-next": "14.2.35",
     "postcss": "^8",
+    "puppeteer": "24.2.0",
     "tailwindcss": "^3.4.1",
     "typescript": "^5"
+  },
+  "engines": {
+    "node": ">=18.18.0"
   }
 }

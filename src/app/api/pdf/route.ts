@@ -1,93 +1,178 @@
 import { NextRequest, NextResponse } from "next/server";
-import type { DocumentDraft } from "@/lib/types";
+import { randomUUID } from "node:crypto";
+import { createLogger } from "@/lib/logger";
 import { pdfFileName } from "@/lib/format";
+import {
+  documentDraftSchema,
+  toDocumentDraft,
+} from "@/lib/pdf/document-draft.schema";
+import {
+  renderDocumentPdf,
+  isServerlessRuntime,
+  PdfError,
+} from "@/lib/pdf/render-pdf";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 /**
- * Renders the shared /print template to a pixel-identical single-page A4 PDF
- * using headless Chromium. The same React component powers the on-screen
- * preview, so downloads are WYSIWYG.
+ * POST /api/pdf
  *
- * Local/dev: uses the Chromium bundled with `puppeteer`.
- * Serverless (Vercel): set PDF_USE_SERVERLESS_CHROMIUM=1 and install
- * `@sparticuz/chromium` + `puppeteer-core` (see README).
+ * Generates a single-page A4 PDF from a document draft and streams it back
+ * in-memory (no disk writes). The heavy lifting lives in the PDF render
+ * service; this handler is a thin controller responsible for correlation,
+ * validation, response shaping, and sanitized error handling.
  */
 export async function POST(req: NextRequest) {
-  let draft: DocumentDraft;
+  const requestId = req.headers.get("x-request-id") ?? randomUUID();
+  const log = createLogger({ requestId, route: "POST /api/pdf" });
+  const startedAt = Date.now();
+
+  log.info("pdf request received", { serverless: isServerlessRuntime() });
+
+  // 1) Parse body ----------------------------------------------------------
+  let raw: unknown;
   try {
-    draft = (await req.json()) as DocumentDraft;
+    raw = await req.json();
   } catch {
-    return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+    log.warn("request body was not valid JSON");
+    return errorResponse("Invalid request body.", 400, requestId);
   }
 
-  const baseUrl =
-    process.env.NEXT_PUBLIC_APP_URL ??
-    req.nextUrl.origin ??
-    "http://localhost:3000";
-
-  const encoded = Buffer.from(JSON.stringify(draft), "utf8").toString(
-    "base64url",
-  );
-  const printUrl = `${baseUrl}/print?d=${encoded}`;
-
-  let browser: Awaited<ReturnType<typeof launchBrowser>> | null = null;
-  try {
-    browser = await launchBrowser();
-    const page = await browser.newPage();
-    await page.goto(printUrl, { waitUntil: "networkidle0", timeout: 30000 });
-    // Wait until shrink-to-fit density has settled.
-    await page
-      .waitForSelector('[data-doc-page][data-ready="1"]', { timeout: 10000 })
-      .catch(() => {
-        /* proceed even if it didn't flag ready */
-      });
-
-    const pdf = await page.pdf({
-      format: "A4",
-      printBackground: true,
-      preferCSSPageSize: true,
-      margin: { top: "0", right: "0", bottom: "0", left: "0" },
+  // 2) Validate payload ----------------------------------------------------
+  const parsed = documentDraftSchema.safeParse(raw);
+  if (!parsed.success) {
+    log.warn("payload validation failed", {
+      issues: parsed.error.issues.map((i) => ({
+        path: i.path.join(".") || "(root)",
+        code: i.code,
+      })),
     });
+    return errorResponse(
+      "The document data is invalid and could not be rendered.",
+      422,
+      requestId,
+    );
+  }
+
+  const draft = toDocumentDraft(parsed.data);
+  log.info("payload validated", {
+    docType: draft.docType,
+    docNumber: draft.docNumber || "(unassigned)",
+    itemCount: draft.items.length,
+  });
+
+  // 3) Render --------------------------------------------------------------
+  const baseUrl = resolveBaseUrl(req);
+  log.info("resolved print origin", { baseUrl });
+
+  try {
+    const { buffer, bytes, fitted, durationsMs } = await renderDocumentPdf(
+      draft,
+      {
+        baseUrl,
+        logger: log,
+        bypassSecret: process.env.VERCEL_AUTOMATION_BYPASS_SECRET || undefined,
+      },
+    );
+
+    if (!fitted) {
+      log.warn("document may not have fit a single page (proceeding)");
+    }
 
     const fileName = `${pdfFileName(draft)}.pdf`;
-    return new NextResponse(pdf as unknown as BodyInit, {
+    log.info("streaming pdf response", {
+      bytes,
+      totalMs: Date.now() - startedAt,
+      durationsMs,
+    });
+
+    // 4) Stream the in-memory buffer to the client ------------------------
+    return new NextResponse(buffer as unknown as BodyInit, {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${fileName}"`,
+        "Content-Disposition": contentDisposition(fileName),
+        "Content-Length": String(bytes),
+        "Cache-Control": "no-store",
+        "X-Request-Id": requestId,
       },
     });
   } catch (err) {
-    console.error("PDF generation failed:", err);
-    return NextResponse.json(
-      { error: "PDF generation failed" },
-      { status: 500 },
+    const stage = err instanceof PdfError ? err.stage : "unknown";
+    const cause =
+      err instanceof PdfError && err.cause instanceof Error
+        ? err.cause
+        : err instanceof Error
+          ? err
+          : undefined;
+    // Full detail server-side only — never returned to the client.
+    log.error("pdf generation failed", {
+      stage,
+      message: err instanceof Error ? err.message : String(err),
+      causeMessage: cause?.message,
+      stack: cause?.stack,
+      totalMs: Date.now() - startedAt,
+    });
+    return errorResponse(
+      "Unable to generate PDF. Please try again.",
+      500,
+      requestId,
+      stage,
     );
-  } finally {
-    await browser?.close();
   }
 }
 
-async function launchBrowser() {
-  if (process.env.PDF_USE_SERVERLESS_CHROMIUM === "1") {
-    // Serverless path (Vercel). Requires @sparticuz/chromium + puppeteer-core.
-    // Specifiers are held in variables so the bundler doesn't try to resolve
-    // these optional deps at build time when they aren't installed.
-    const chromiumPkg = "@sparticuz/chromium";
-    const puppeteerCorePkg = "puppeteer-core";
-    const chromium = (await import(/* webpackIgnore: true */ chromiumPkg)).default;
-    const puppeteerCore = await import(/* webpackIgnore: true */ puppeteerCorePkg);
-    return puppeteerCore.launch({
-      args: chromium.args,
-      executablePath: await chromium.executablePath(),
-      headless: true,
-    });
+/**
+ * Sanitized JSON error carrying the correlation id (and a coarse, non-sensitive
+ * stage label) for support/debugging. No stack traces or internal messages are
+ * ever exposed to the client.
+ */
+function errorResponse(
+  message: string,
+  status: number,
+  requestId: string,
+  stage?: string,
+) {
+  return NextResponse.json(
+    { error: message, requestId, ...(stage ? { stage } : {}) },
+    { status, headers: { "X-Request-Id": requestId } },
+  );
+}
+
+/**
+ * Builds a robust `Content-Disposition` value: an ASCII-safe fallback plus an
+ * RFC 5987 UTF-8 encoding so names with spaces/unicode download correctly on
+ * Chrome, Edge, and mobile browsers.
+ */
+function contentDisposition(fileName: string): string {
+  const asciiFallback = fileName.replace(/[^\x20-\x7E]/g, "_").replace(/"/g, "'");
+  const encoded = encodeURIComponent(fileName);
+  return `attachment; filename="${asciiFallback}"; filename*=UTF-8''${encoded}`;
+}
+
+/**
+ * Resolves the origin used to fetch the `/print` template.
+ *
+ * Priority:
+ *   1. An explicit, valid, NEXT_PUBLIC_APP_URL — but a localhost value is
+ *      ignored outside development (a common production misconfiguration that
+ *      makes the server fetch localhost and fail at the navigate stage).
+ *   2. VERCEL_URL (platform-provided public origin).
+ *   3. The incoming request's own origin — always correct for the deployment.
+ */
+function resolveBaseUrl(req: NextRequest): string {
+  const env = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  const isDevelopment = process.env.NODE_ENV !== "production";
+  const isLocalhost = (u: string) => /localhost|127\.0\.0\.1|0\.0\.0\.0/i.test(u);
+
+  if (
+    env &&
+    /^https?:\/\//i.test(env) &&
+    (isDevelopment || !isLocalhost(env))
+  ) {
+    return env.replace(/\/+$/, "");
   }
-  const puppeteer = (await import("puppeteer")).default;
-  return puppeteer.launch({
-    headless: true,
-    args: ["--no-sandbox", "--disable-setuid-sandbox"],
-  });
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  return req.nextUrl.origin;
 }
