@@ -125,8 +125,9 @@ export function formatINR(amount: number, fractionDigits = 2): string {
 
 /**
  * Builds the download file name (without extension) for a document PDF in the
- * form "customername_docnumber", e.g. "Acme Constructions_INV-0042". Strips
- * characters that are illegal in file names and collapses whitespace.
+ * form "DocType_CustomerName", e.g. "Invoice_Mr.Sahil Naik" /
+ * "Quotation_Acme Constructions". Falls back to the document number, then a
+ * generic label. Strips characters that are illegal in file names.
  */
 export function pdfFileName(doc: {
   customerName?: string | null;
@@ -139,10 +140,11 @@ export function pdfFileName(doc: {
       .replace(/\s+/g, " ")
       .trim();
 
+  const typeLabel = doc.docType === "quotation" ? "Quotation" : "Invoice";
   const name = clean(doc.customerName ?? "");
-  const number = clean(doc.docNumber ?? "");
-  const base = [name, number].filter(Boolean).join("_");
-  return base || clean(doc.docType ?? "") || "document";
+  const fallback = clean(doc.docNumber ?? "");
+  const suffix = name || fallback;
+  return suffix ? `${typeLabel}_${suffix}` : typeLabel;
 }
 
 /**
