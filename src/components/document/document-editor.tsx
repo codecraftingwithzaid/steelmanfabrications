@@ -59,6 +59,7 @@ export function DocumentEditor({
   initialDraft,
   contact,
   descriptions,
+  previewDocNumbers,
 }: {
   mode?: "create" | "edit";
   documentId?: string;
@@ -66,16 +67,20 @@ export function DocumentEditor({
   initialDraft?: DocumentDraft;
   contact: { name: string; email: string; phone: string };
   descriptions?: Record<CategorySlug, string[]>;
+  /** Previewed next numbers per type for unsaved documents (create mode). */
+  previewDocNumbers?: Partial<Record<DocType, string>>;
 }) {
   const router = useRouter();
   const isEdit = mode === "edit";
+  // The number shown before saving; the final value is assigned on save.
+  const previewNumberFor = (t: DocType) => previewDocNumbers?.[t] ?? "(auto)";
   const [defaultCategory, setDefaultCategory] =
     useState<CategorySlug>("fabrication");
   const [draft, setDraft] = useState<DocumentDraft>(
     () =>
       initialDraft ?? {
         docType: initialDocType,
-        docNumber: "(auto)",
+        docNumber: previewNumberFor(initialDocType),
         docDate: today(),
         validityOrDueDate: "",
         customerName: "",
@@ -84,6 +89,7 @@ export function DocumentEditor({
         customerAddress: "",
         items: [newItem("fabrication")],
         gstPercent: "",
+        advancePayment: "",
         terms: DEFAULT_TERMS,
         contact,
       },
@@ -112,7 +118,9 @@ export function DocumentEditor({
       const raw = localStorage.getItem(DRAFT_KEY);
       if (raw) {
         const parsed = JSON.parse(raw) as DocumentDraft;
-        if (parsed.items?.length) setDraft((d) => ({ ...d, ...parsed, contact }));
+        // Keep the freshly-previewed doc number, not the stale stored one.
+        if (parsed.items?.length)
+          setDraft((d) => ({ ...d, ...parsed, docNumber: d.docNumber, contact }));
       }
     } catch {
       /* ignore */
@@ -190,6 +198,9 @@ export function DocumentEditor({
     draft.items.map((i) => ({ qty: Number(i.qty), rate: Number(i.rate) })),
     draft.gstPercent === "" ? null : Number(draft.gstPercent),
   );
+
+  const advance = Math.max(0, Number(draft.advancePayment) || 0);
+  const balanceDue = totals.grandTotal - advance;
 
   const isInvoice = draft.docType === "invoice";
 
@@ -326,7 +337,10 @@ export function DocumentEditor({
                     { value: "invoice", label: "Invoice" },
                     { value: "quotation", label: "Quotation" },
                   ]}
-                  onChange={(v) => patch({ docType: v as DocType })}
+                  onChange={(v) => {
+                    const t = v as DocType;
+                    patch({ docType: t, docNumber: previewNumberFor(t) });
+                  }}
                 />
               </div>
               <div className="space-y-1.5">
@@ -475,8 +489,28 @@ export function DocumentEditor({
                     {formatINR(totals.grandTotal)}
                   </span>
                 </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Advance Payment</span>
+                  <Input
+                    type="number"
+                    min={0}
+                    step="any"
+                    placeholder="0"
+                    className="h-8 w-28 text-right"
+                    value={draft.advancePayment}
+                    onChange={(e) => patch({ advancePayment: e.target.value })}
+                  />
+                </div>
+                {advance > 0 && (
+                  <div className="flex items-center justify-between border-t border-border pt-2 text-base">
+                    <span className="font-semibold">Balance Due</span>
+                    <span className="font-bold tabular-nums text-primary">
+                      {formatINR(balanceDue)}
+                    </span>
+                  </div>
+                )}
                 <p className="text-xs italic text-muted-foreground">
-                  {amountToWords(totals.grandTotal)}
+                  {amountToWords(advance > 0 ? balanceDue : totals.grandTotal)}
                 </p>
               </div>
             </Card>

@@ -144,3 +144,26 @@ export function pdfFileName(doc: {
   const base = [name, number].filter(Boolean).join("_");
   return base || clean(doc.docType ?? "") || "document";
 }
+
+/**
+ * Formats a date for display as dd-mm-yyyy.
+ *
+ * Accepts the ISO `yyyy-mm-dd` values produced by `<input type="date">` (and
+ * falls back to Date parsing for other inputs). Returns an empty string for
+ * blank/invalid values so callers can supply their own placeholder.
+ */
+export function formatDateDMY(value?: string | null): string {
+  if (!value) return "";
+  const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(value.trim());
+  if (iso) {
+    const [, yyyy, mm, dd] = iso;
+    return `${dd}-${mm}-${yyyy}`;
+  }
+  const d = new Date(value);
+  if (!Number.isNaN(d.getTime())) {
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    return `${dd}-${mm}-${d.getFullYear()}`;
+  }
+  return value;
+}

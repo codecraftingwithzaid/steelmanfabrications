@@ -6,7 +6,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { formatINR } from "@/lib/format";
+import { formatINR, formatDateDMY } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Badge, Card } from "@/components/ui/misc";
 import { buttonVariants } from "@/components/ui/button";
@@ -232,7 +232,7 @@ export default async function DashboardPage() {
                 >
                   <span className="shrink-0 font-medium">{d.doc_number}</span>
                   <span className="min-w-0 truncate text-muted-foreground">
-                    due {d.validity_or_due_date}
+                    due {formatDateDMY(d.validity_or_due_date)}
                   </span>
                   <span className="shrink-0 tabular-nums">
                     {formatINR(Number(d.grand_total || 0))}

@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { DocumentEditor } from "@/components/document/document-editor";
 import {
   DESCRIPTIONS_BY_CATEGORY,
@@ -7,6 +8,27 @@ import {
 import type { DocType } from "@/lib/types";
 
 export const metadata = { title: "New Document · Steelman" };
+export const dynamic = "force-dynamic";
+
+/**
+ * Previews the next document number (current sequence value + 1) for display
+ * in the editor/PDF before saving. The authoritative number is still assigned
+ * atomically on save via the `next_doc_number` RPC. Reads the RLS-protected
+ * sequence table with a server-only admin client; falls back gracefully.
+ */
+async function peekNextDocNumber(docType: DocType): Promise<string | undefined> {
+  const admin = createAdminClient();
+  if (!admin) return undefined;
+  const { data, error } = await admin
+    .from("document_sequences")
+    .select("current_number")
+    .eq("doc_type", docType)
+    .single();
+  if (error || !data) return undefined;
+  const next = (Number(data.current_number) || 0) + 1;
+  const prefix = docType === "invoice" ? "INV" : "QTN";
+  return `${prefix}-${String(next).padStart(4, "0")}`;
+}
 
 export default async function NewDocumentPage({
   searchParams,
@@ -54,9 +76,21 @@ export default async function NewDocumentPage({
   const initialDocType: DocType =
     searchParams.type === "quotation" ? "quotation" : "invoice";
 
+  // Preview the next number for both types so the field/PDF show a real value
+  // and stay correct if the user toggles the document type before saving.
+  const [invoiceNo, quotationNo] = await Promise.all([
+    peekNextDocNumber("invoice"),
+    peekNextDocNumber("quotation"),
+  ]);
+  const previewDocNumbers: Partial<Record<DocType, string>> = {
+    invoice: invoiceNo,
+    quotation: quotationNo,
+  };
+
   return (
     <DocumentEditor
       initialDocType={initialDocType}
+      previewDocNumbers={previewDocNumbers}
       descriptions={descriptions}
       contact={{
         name: profile?.full_name || "",

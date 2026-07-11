@@ -14,6 +14,7 @@ const EMPTY: DocumentDraft = {
   customerAddress: "",
   items: [],
   gstPercent: "",
+  advancePayment: "",
   terms: "",
   contact: { name: "", email: "", phone: "" },
 };

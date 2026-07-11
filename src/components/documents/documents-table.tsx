@@ -11,7 +11,7 @@ import {
   Search,
   Trash2,
 } from "lucide-react";
-import { formatINR } from "@/lib/format";
+import { formatINR, formatDateDMY } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Badge, Card, Select } from "@/components/ui/misc";
@@ -183,7 +183,7 @@ export function DocumentsTable({ rows }: { rows: DocumentRecord[] }) {
                 </td>
                 <td className="px-3 py-2">{r.customer_name || "—"}</td>
                 <td className="px-3 py-2 text-muted-foreground">
-                  {r.doc_date}
+                  {formatDateDMY(r.doc_date)}
                 </td>
                 <td className="px-3 py-2 text-right tabular-nums">
                   {formatINR(Number(r.grand_total))}

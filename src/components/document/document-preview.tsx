@@ -3,7 +3,7 @@
 import * as React from "react";
 import { COMPANY } from "@/lib/catalog";
 import { computeTotals } from "@/lib/calc";
-import { amountToWords, formatNumberIN } from "@/lib/format";
+import { amountToWords, formatNumberIN, formatDateDMY } from "@/lib/format";
 import { nextDensity } from "@/lib/fit-to-page";
 import type { DocumentDraft } from "@/lib/types";
 
@@ -35,6 +35,43 @@ const OSWALD = "var(--font-oswald), 'Oswald', sans-serif";
 const MONO = "var(--font-plex-mono), 'IBM Plex Mono', ui-monospace, monospace";
 const SANS = "'Helvetica Neue', Arial, sans-serif";
 
+/* ---------------------------------------------------------------------------
+ * Header brand styling — centralized so company-name emphasis can be tuned in
+ * one place. Sizes are `em`-relative to the page base font so they scale with
+ * the shrink-to-fit density. At base density the name renders ~20pt and the
+ * detail lines ~10pt, preserving a clear hierarchy: NAME > tagline > details.
+ * ------------------------------------------------------------------------- */
+// The branding sits on a solid amber "plate" so it reads as highlighted and
+// balances the document-type badge on the opposite side of the header.
+const COMPANY_LOCKUP_STYLE: React.CSSProperties = {
+  display: "inline-block",
+  background: AMBER, // brand accent fill (the highlight)
+  padding: "0.32em 0.72em",
+  borderRadius: "4px",
+};
+const COMPANY_NAME_STYLE: React.CSSProperties = {
+  fontFamily: OSWALD,
+  fontWeight: 700,
+  fontSize: "2.1em", // dominant — ~20pt at base density
+  lineHeight: 1,
+  letterSpacing: "0.14em",
+  color: "#ffffff", // on the amber highlight
+};
+const COMPANY_TAGLINE_STYLE: React.CSSProperties = {
+  fontFamily: OSWALD,
+  fontWeight: 600,
+  fontSize: "0.82em",
+  letterSpacing: "0.14em",
+  color: "rgba(255, 255, 255, 0.9)",
+  marginTop: "0.25em",
+};
+const COMPANY_DETAILS_STYLE: React.CSSProperties = {
+  color: SECONDARY,
+  fontSize: "0.82em",
+  marginTop: "0.5em",
+  lineHeight: 1.45,
+};
+
 function fmtQty(qty: string): string {
   const n = Number(qty);
   if (!Number.isFinite(n) || n === 0) return qty || "";
@@ -52,6 +89,7 @@ function makeSignature(d: DocumentDraft): string {
     ph: d.customerPhone,
     ad: d.customerAddress,
     g: d.gstPercent,
+    adv: d.advancePayment,
     items: d.items.map((i) => [i.description, i.qty, i.unit, i.rate]),
     terms: d.terms,
     ct: [d.contact.name, d.contact.email, d.contact.phone],
@@ -71,6 +109,9 @@ export function DocumentPreview({ draft, printMode = false, onFitted }: Props) {
     draft.items.map((i) => ({ qty: Number(i.qty), rate: Number(i.rate) })),
     draft.gstPercent === "" ? null : Number(draft.gstPercent),
   );
+  const advance = Math.max(0, Number(draft.advancePayment) || 0);
+  const hasAdvance = advance > 0;
+  const balanceDue = totals.grandTotal - advance;
 
   React.useLayoutEffect(() => {
     // Reset density when the document content changes, then step down to fit.
@@ -156,39 +197,14 @@ export function DocumentPreview({ draft, printMode = false, onFitted }: Props) {
             breakInside: "avoid",
           }}
         >
-          <div style={{ maxWidth: "60%" }}>
-            <div
-              style={{
-                fontFamily: OSWALD,
-                fontWeight: 700,
-                fontSize: "2.1em",
-                lineHeight: 1,
-                letterSpacing: "0.14em",
-                color: INK,
-              }}
-            >
-              STEELMAN
+          <div style={{ maxWidth: "62%" }}>
+            <div style={COMPANY_LOCKUP_STYLE}>
+              <div style={COMPANY_NAME_STYLE}>STEELMAN</div>
+              <div style={COMPANY_TAGLINE_STYLE}>
+                FABRICATION &amp; ALUMINIUM WINDOWS WORKS
+              </div>
             </div>
-            <div
-              style={{
-                fontFamily: OSWALD,
-                fontWeight: 500,
-                fontSize: "0.82em",
-                letterSpacing: "0.24em",
-                color: SECONDARY,
-                marginTop: "0.25em",
-              }}
-            >
-              FABRICATION &amp; ALUMINIUM WORKS
-            </div>
-            <div
-              style={{
-                color: SECONDARY,
-                fontSize: "0.82em",
-                marginTop: "0.5em",
-                lineHeight: 1.45,
-              }}
-            >
+            <div style={COMPANY_DETAILS_STYLE}>
               {COMPANY.addressLines.map((l) => (
                 <div key={l}>{l}</div>
               ))}
@@ -229,11 +245,14 @@ export function DocumentPreview({ draft, printMode = false, onFitted }: Props) {
             >
               <tbody>
                 <MetaRow label="DOC NO" value={draft.docNumber || "—"} />
-                <MetaRow label="DATE" value={draft.docDate || "—"} />
-                <MetaRow
-                  label={thirdLabel}
-                  value={draft.validityOrDueDate || "—"}
-                />
+                <MetaRow label="DATE" value={formatDateDMY(draft.docDate) || "—"} />
+                {/* Invoices omit the due-date row; quotations keep validity. */}
+                {!isInvoice && (
+                  <MetaRow
+                    label={thirdLabel}
+                    value={formatDateDMY(draft.validityOrDueDate) || "—"}
+                  />
+                )}
               </tbody>
             </table>
           </div>
@@ -399,7 +418,7 @@ export function DocumentPreview({ draft, printMode = false, onFitted }: Props) {
                 fontSize: "0.92em",
               }}
             >
-              {amountToWords(totals.grandTotal)}
+              {amountToWords(hasAdvance ? balanceDue : totals.grandTotal)}
             </div>
           </div>
 
@@ -462,6 +481,63 @@ export function DocumentPreview({ draft, printMode = false, onFitted }: Props) {
                 ₹ {formatNumberIN(totals.grandTotal)}
               </span>
             </div>
+
+            {/* Advance received + balance due (only when an advance is set) */}
+            {hasAdvance && (
+              <>
+                <table
+                  style={{
+                    width: "100%",
+                    fontFamily: MONO,
+                    fontVariantNumeric: "tabular-nums",
+                    borderCollapse: "collapse",
+                    fontSize: "0.92em",
+                    marginTop: "0.5em",
+                  }}
+                >
+                  <tbody>
+                    <TotalRow
+                      label="ADVANCE PAID"
+                      value={`- ₹ ${formatNumberIN(advance)}`}
+                    />
+                  </tbody>
+                </table>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "baseline",
+                    gap: "1em",
+                    marginTop: "0.4em",
+                    border: `1.5px solid ${HEAVY}`,
+                    padding: "0.4em 0.7em",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontFamily: OSWALD,
+                      fontWeight: 600,
+                      letterSpacing: "0.12em",
+                      color: AMBER,
+                      fontSize: "0.95em",
+                    }}
+                  >
+                    BALANCE DUE
+                  </span>
+                  <span
+                    style={{
+                      fontFamily: MONO,
+                      fontVariantNumeric: "tabular-nums",
+                      fontWeight: 600,
+                      fontSize: "1.35em",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    ₹ {formatNumberIN(balanceDue)}
+                  </span>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
@@ -504,7 +580,7 @@ export function DocumentPreview({ draft, printMode = false, onFitted }: Props) {
                   fontFamily: MONO,
                 }}
               >
-                {draft.contact.email}
+                {COMPANY.email}
               </div>
               <div
                 style={{
@@ -513,7 +589,7 @@ export function DocumentPreview({ draft, printMode = false, onFitted }: Props) {
                   fontFamily: MONO,
                 }}
               >
-                {draft.contact.phone}
+                {COMPANY.phone}
               </div>
             </div>
           </div>
@@ -542,7 +618,6 @@ export function DocumentPreview({ draft, printMode = false, onFitted }: Props) {
                   label="DOCUMENT"
                   value={isInvoice ? "INVOICE" : "QUOTATION"}
                 />
-                <TitleBlockRow label="DOC NO" value={draft.docNumber || "—"} />
                 <TitleBlockRow label="REV" value="00" />
                 <TitleBlockRow
                   label="PREPARED BY"
@@ -569,42 +644,7 @@ export function DocumentPreview({ draft, printMode = false, onFitted }: Props) {
                   textAlign: "right",
                 }}
               >
-                For, STEELMAN
-              </div>
-
-              {/* Ink stamp — circular amber outline, rotated */}
-              <div
-                aria-hidden
-                style={{
-                  position: "absolute",
-                  left: "0.5em",
-                  top: "0.2em",
-                  width: "4.4em",
-                  height: "4.4em",
-                  borderRadius: "50%",
-                  border: `1.5px solid ${AMBER}`,
-                  transform: "rotate(-9deg)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  textAlign: "center",
-                  color: AMBER,
-                  opacity: 0.85,
-                }}
-              >
-                <span
-                  style={{
-                    fontFamily: OSWALD,
-                    fontWeight: 600,
-                    fontSize: "0.62em",
-                    letterSpacing: "0.14em",
-                    lineHeight: 1.25,
-                  }}
-                >
-                  STEELMAN
-                  <br />
-                  INDORE
-                </span>
+                For, {COMPANY.name}
               </div>
 
               <div

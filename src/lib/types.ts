@@ -89,6 +89,7 @@ export interface DocumentRecord {
   subtotal: number;
   gst_amount: number;
   grand_total: number;
+  advance_amount: number;
   status: DocumentStatus;
   terms_and_conditions: string | null;
   contact_person_id: string | null;
@@ -121,6 +122,8 @@ export interface DocumentDraft {
   customerAddress: string;
   items: EditorLineItem[];
   gstPercent: string;
+  /** Advance payment already received (string for controlled input; "" = 0). */
+  advancePayment: string;
   terms: string;
   contact: {
     name: string;

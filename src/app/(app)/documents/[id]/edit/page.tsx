@@ -105,6 +105,10 @@ export default async function EditDocumentPage({
           },
         ],
     gstPercent: doc.gst_percent != null ? String(Number(doc.gst_percent)) : "",
+    advancePayment:
+      doc.advance_amount != null && Number(doc.advance_amount) > 0
+        ? String(Number(doc.advance_amount))
+        : "",
     terms: doc.terms_and_conditions ?? DEFAULT_TERMS,
     contact: {
       name: contactProfile?.full_name || "",

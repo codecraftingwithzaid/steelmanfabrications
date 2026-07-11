@@ -78,6 +78,7 @@ export const COMPANY = {
     "Indore (MP) 452018",
   ],
   phone: "9111677776",
+  email: "saifbanthiya@gmail.com",
 } as const;
 
 export const DEFAULT_TERMS =

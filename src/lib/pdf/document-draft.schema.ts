@@ -35,6 +35,7 @@ export const documentDraftSchema = z.object({
   customerAddress: z.string().default(""),
   items: z.array(lineItemSchema).max(MAX_LINE_ITEMS).default([]),
   gstPercent: z.string().default(""),
+  advancePayment: z.string().default(""),
   terms: z.string().default(""),
   contact: z
     .object({

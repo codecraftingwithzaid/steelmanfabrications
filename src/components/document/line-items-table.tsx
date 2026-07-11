@@ -161,9 +161,15 @@ function SortableRow({
 
   function onDescriptionSelect(value: string) {
     if (value === OTHER_OPTION) {
+      // Free-text from scratch.
       onChange(item.key, { isOther: true, description: "" });
+    } else if (value === "") {
+      // "Select product…" placeholder — stay on the dropdown.
+      onChange(item.key, { isOther: false, description: "" });
     } else {
-      onChange(item.key, { isOther: false, description: value });
+      // Selecting a product drops into the editable field pre-filled with the
+      // name so the user can extend it (e.g. add sizes / specs).
+      onChange(item.key, { isOther: true, description: value });
     }
   }
 

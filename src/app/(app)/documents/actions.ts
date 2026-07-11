@@ -52,6 +52,7 @@ export async function createDocument(
       doc_date: draft.docDate || new Date().toISOString().slice(0, 10),
       validity_or_due_date: draft.validityOrDueDate || null,
       gst_percent: gst,
+      advance_amount: Number(draft.advancePayment) || 0,
       status: "draft",
       terms_and_conditions: draft.terms || null,
       contact_person_id: user.id,
@@ -181,6 +182,7 @@ export async function updateDocument(
       doc_date: draft.docDate || new Date().toISOString().slice(0, 10),
       validity_or_due_date: draft.validityOrDueDate || null,
       gst_percent: gst,
+      advance_amount: Number(draft.advancePayment) || 0,
       terms_and_conditions: draft.terms || null,
     })
     .eq("id", id);
