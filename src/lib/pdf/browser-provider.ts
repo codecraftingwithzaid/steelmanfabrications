@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import type { Browser } from "puppeteer-core";
 import type { Logger } from "@/lib/logger";
 import { PdfError } from "./errors";
@@ -22,6 +23,7 @@ import { PdfError } from "./errors";
 
 export type BrowserProvider =
   | "system-chrome"
+  | "system-chrome-auto"
   | "chromium-serverless"
   | "puppeteer-local";
 
@@ -66,6 +68,30 @@ export function detectEnvironment(): PdfEnvironment {
   return { name, isProduction, isServerless };
 }
 
+/** Well-known Chrome/Chromium executable paths per platform. */
+const CHROME_PATHS: string[] = [
+  // Windows
+  "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
+  `${process.env.LOCALAPPDATA ?? ""}\\Google\\Chrome\\Application\\chrome.exe`,
+  // macOS
+  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+  // Linux
+  "/usr/bin/google-chrome",
+  "/usr/bin/google-chrome-stable",
+  "/usr/bin/chromium",
+  "/usr/bin/chromium-browser",
+  "/snap/bin/chromium",
+];
+
+/** Returns the first system Chrome path that exists, or null if none found. */
+function findSystemChrome(): string | null {
+  for (const p of CHROME_PATHS) {
+    if (p && existsSync(p)) return p;
+  }
+  return null;
+}
+
 /**
  * Ordered list of providers to attempt for the given environment.
  *
@@ -85,9 +111,11 @@ function providerChain(env: PdfEnvironment): BrowserProvider[] {
   if (env.isServerless) {
     chain.push("chromium-serverless");
   } else if (env.isProduction) {
-    chain.push("chromium-serverless", "puppeteer-local");
+    chain.push("chromium-serverless", "puppeteer-local", "system-chrome-auto");
   } else {
-    chain.push("puppeteer-local");
+    // Development: try puppeteer-bundled first, then fall back to any
+    // installed Chrome on the developer's machine.
+    chain.push("puppeteer-local", "system-chrome-auto");
   }
   return chain;
 }
@@ -115,6 +143,22 @@ async function launchWith(
 
     case "system-chrome": {
       const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH!;
+      const puppeteer = await import("puppeteer-core");
+      const browser = await puppeteer.launch({
+        executablePath,
+        args: SAFE_ARGS,
+        headless: true,
+      });
+      return { browser, executablePath };
+    }
+
+    case "system-chrome-auto": {
+      const executablePath = findSystemChrome();
+      if (!executablePath) {
+        throw new Error(
+          "No system Chrome/Chromium found in common install locations",
+        );
+      }
       const puppeteer = await import("puppeteer-core");
       const browser = await puppeteer.launch({
         executablePath,

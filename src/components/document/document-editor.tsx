@@ -98,7 +98,6 @@ export function DocumentEditor({
   const [saving, setSaving] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [savedAt, setSavedAt] = useState<string | null>(null);
-  const restored = useRef(false);
 
   // Collapse the live preview by default on small screens (below Tailwind's lg).
   const previewDefaulted = useRef(false);
@@ -110,24 +109,18 @@ export function DocumentEditor({
     }
   }, []);
 
-  // Restore autosaved draft once (create mode only).
+  // Clear any previously autosaved draft so a new document always starts fresh.
   useEffect(() => {
-    if (isEdit || restored.current) return;
-    restored.current = true;
+    if (isEdit) return;
     try {
-      const raw = localStorage.getItem(DRAFT_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as DocumentDraft;
-        // Keep the freshly-previewed doc number, not the stale stored one.
-        if (parsed.items?.length)
-          setDraft((d) => ({ ...d, ...parsed, docNumber: d.docNumber, contact }));
-      }
+      localStorage.removeItem(DRAFT_KEY);
     } catch {
       /* ignore */
     }
-  }, [contact, isEdit]);
+  }, [isEdit]);
 
   // Autosave every 2.5s when the draft changes (create mode only).
+  // Protects against accidental tab-close; the draft is cleared on successful save.
   useEffect(() => {
     if (isEdit) return;
     const t = setTimeout(() => {
@@ -227,18 +220,35 @@ export function DocumentEditor({
       const res = await fetch("/api/pdf", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "same-origin", // ensures auth cookies are sent on all hosts
         body: JSON.stringify(draft),
       });
-      if (!res.ok) throw new Error("PDF failed");
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(body?.error || `PDF failed (${res.status})`);
+      }
       const blob = await res.blob();
+      const fileName = `${pdfFileName(draft)}.pdf`;
+
+      // Reliable cross-browser programmatic download:
+      // 1. Append the anchor to the DOM (required by Firefox/Safari).
+      // 2. Defer revokeObjectURL so the browser has time to start the download.
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${pdfFileName(draft)}.pdf`;
+      a.download = fileName;
+      a.style.display = "none";
+      document.body.appendChild(a);
       a.click();
-      URL.revokeObjectURL(url);
-    } catch {
-      toast.error("Could not generate PDF");
+      // Allow the browser to initiate the download before revoking.
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 150);
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "Could not generate PDF",
+      );
     } finally {
       setPdfLoading(false);
     }
